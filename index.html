@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Graph Algorithms Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: background-color .4s ease;
+        }
+
+        .node {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all .25s ease;
+            position: absolute;
+            z-index: 2;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .1);
+            user-select: none;
+        }
+
+        .edge {
+            position: absolute;
+            height: 2px;
+            background: #374151;
+            transform-origin: left center;
+        }
+
+        #graphContainer {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            height: 500px;
+            border: 2px solid #d1d5db;
+            background: #fff;
+            border-radius: .5rem;
+            overflow: hidden;
+        }
+
+        #graphContainer svg {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .qa-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: .5rem;
+            padding: 16px;
+            cursor: pointer;
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .qa-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .08);
+        }
+
+        .badge {
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111827;
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        #codePanel {
+            background: #1e1e1e;
+            border-radius: .5rem;
+            overflow: auto;
+        }
+
+        #codeBlock {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            padding: 16px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        body {
+            overscroll-behavior-x: auto;
+            touch-action: manipulation;
+        }
+
+        #questionsList,
+        #controlPanel,
+        #grid,
+        #graphContainer {
+            overscroll-behavior-x: none;
+            touch-action: pan-y;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+    <h1 class="text-3xl font-bold mb-6">🔍 Graph Algorithms Visualizer</h1>
+    <div id="questionsList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-5xl mb-6"></div>
+    <div id="controlPanel" class="w-full max-w-5xl" style="display:none;">
+        <div class="flex items-center justify-between w-full mb-4">
+            <h2 id="algoTitle" class="text-xl font-semibold"></h2>
+            <button id="backBtn" class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">← Back</button>
+        </div>
+        <div class="flex flex-wrap gap-4 mb-6">
+            <div style="display:none">
+                <label class="font-semibold">Select Algorithm:</label><br>
+                <select id="algorithmType" class="border rounded p-2 mt-1">
+                    <option value="islands">Number of Islands (DFS)</option>
+                    <option value="bfs">BFS Traversal</option>
+                    <option value="dfs">DFS Traversal</option>
+                    <option value="cycleUndirected">Cycle Detection (Undirected)</option>
+                    <option value="cycleDirected">Cycle Detection (Directed)</option>
+                    <option value="bipartite">Bipartite Graph Check</option>
+                    <option value="surrounded">Surrounded Regions</option>
+                    <option value="shortestPath">Shortest Path (Unweighted)</option>
+
+                </select>
+            </div>
+            <div>
+                <label class="font-semibold">Select Test Case:</label><br>
+                <select id="testCase" class="border rounded p-2 mt-1"></select>
+            </div>
+            <div id="dijkstraMethodContainer" style="display:none">
+                <label class="font-semibold">Dijkstra Method:</label><br>
+                <select id="dijkstraMethod" class="border rounded p-2 mt-1">
+                    <option value="pq">Using Priority Queue</option>
+                    <option value="set">Using Set</option>
+                    <option value="both">Both (side-by-side)</option>
+                </select>
+            </div>
+            <div id="sourceNodeContainer" style="display:none">
+                <label class="font-semibold">Source Node:</label><br>
+                <input id="sourceNode" type="number" class="border rounded p-2 mt-1 w-28" placeholder="0" />
+            </div>
+            <div>
+                <label class="font-semibold">Speed:</label><br>
+                <input type="range" id="speedSlider" min="1" max="3" value="2" class="mt-1">
+                <div class="text-sm mt-1" id="speedLabel">Medium</div>
+            </div>
+        </div>
+        <div class="w-full mb-4" id="customInputSection">
+            <label class="font-semibold" id="customInputLabel">Custom Input:</label>
+            <textarea id="customGrid" rows="4" class="w-full border rounded p-2 mt-1"
+                placeholder="Enter custom input based on selected algorithm"></textarea>
+            <div class="text-xs text-gray-500 mt-1" id="customHelp"></div>
+        </div>
+        <button id="startBtn" class="mb-4 bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">Start
+            Visualization</button>
+    </div>
+    <div id="grid" class="grid gap-1 mb-6" style="display:none;"></div>
+    <div id="graphContainer" style="display:none;"></div>
+    <div id="graphSplit" class="w-full max-w-5xl" style="display:none;">
+        <div class="flex flex-col lg:flex-row gap-4">
+            <div class="flex-1">
+                <div class="text-sm font-semibold mb-1">Priority Queue</div>
+                <div id="graphContainerPQ" class="relative w-full" style="height:500px; border: 2px solid #d1d5db; background:#fff; border-radius:.5rem; overflow:hidden;"></div>
+            </div>
+            <div class="flex-1">
+                <div class="text-sm font-semibold mb-1">Set</div>
+                <div id="graphContainerSet" class="relative w-full" style="height:500px; border: 2px solid #d1d5db; background:#fff; border-radius:.5rem; overflow:hidden;"></div>
+            </div>
+        </div>
+    </div>
+    <div id="intuition" class="bg-white p-4 shadow rounded max-w-4xl text-center text-gray-700">Pick a question to
+        visualize.</div>
+    <div class="w-full max-w-5xl mt-4">
+        <button id="toggleCodeBtn" class="bg-gray-800 text-white text-sm px-3 py-2 rounded hover:bg-gray-700"
+            style="display:none;">Show Code</button>
+        <pre id="codePanel" class="mt-3 hidden"><code class="language-cpp" id="codeBlock"></code></pre>
+    </div>
+    <script>
+        const algorithmMeta = {
+            islands: { title: 'Number of Islands (DFS)', desc: 'Count connected land regions in a grid using DFS.' },
+            surrounded: { title: 'Surrounded Regions', desc: 'Mark border-connected regions; flip the rest.' },
+            bfs: { title: 'BFS Traversal', desc: 'Level-order traversal of a graph using a queue.' },
+            dfs: { title: 'DFS Traversal', desc: 'Depth-first traversal using recursion/stack.' },
+            cycleUndirected: { title: 'Cycle Detection (Undirected)', desc: 'Detect cycles with parent tracking.' },
+            cycleDirected: { title: 'Cycle Detection (Directed)', desc: 'Detect cycles using Kahn\'s Topological Sort.' },
+            bipartite: { title: 'Bipartite Graph Check', desc: 'Two-color the graph using BFS.' },
+            shortestPath: { title: 'Shortest Path (Unweighted Graph)', desc: 'BFS distances from a source.' },
+            dijkstra: { title: "Dijkstra's Algorithm (Weighted)", desc: 'Single-source shortest paths with positive weights.' }
+        };
+        const testCases = {
+            islands: [[['1', '1', '1'], ['0', '1', '0'], ['1', '1', '1']], [['1', '0', '1'], ['0', '1', '0'], ['1', '0', '1']], [['0', '0', '0'], ['0', '0', '0'], ['0', '0', '0']], [['1', '1', '1'], ['1', '1', '1'], ['1', '1', '1']], [['1']]],
+            surrounded: [[['X', 'X', 'X', 'X'], ['X', 'O', 'O', 'X'], ['X', 'X', 'O', 'X'], ['X', 'O', 'X', 'X']], [['X', 'O', 'X'], ['O', 'X', 'O'], ['X', 'O', 'X']], [['O', 'O', 'O'], ['O', 'O', 'O'], ['O', 'O', 'O']], [['X', 'X', 'X'], ['X', 'X', 'X'], ['X', 'X', 'X']], [['O']]],
+            bfs: [[[0, 1], [0, 2], [1, 2], [2, 3], [3, 4]], [[0, 1], [1, 2], [2, 3], [0, 3], [3, 4], [4, 5]], [[0, 1], [1, 2], [2, 0], [3, 4]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
+            dfs: [[[0, 1], [0, 2], [1, 2], [2, 3], [3, 4]], [[0, 1], [1, 2], [2, 3], [0, 3], [3, 4], [4, 5]], [[0, 1], [1, 2], [2, 0], [3, 4]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
+            cycleUndirected: [[[0, 1], [1, 2], [2, 3], [3, 1]], [[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
+            cycleDirected: [[[0, 1], [1, 2], [2, 3], [3, 1]], [[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
+            bipartite: [[[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 3], [3, 0]], [[0, 1], [0, 3], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1]]],
+            shortestPath: [[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]], [[0, 1], [1, 2], [2, 3], [3, 4], [1, 4]], [[0, 1], [1, 2], [2, 0], [1, 3]], [[0, 2], [2, 4], [0, 1], [1, 3], [3, 4]], [[0, 1]]],
+            dijkstra: [
+                [[0,1,2],[0,2,5],[1,2,1],[1,3,2],[2,3,3],[3,4,1]],
+                [[0,1,4],[0,2,1],[2,1,2],[1,3,1],[2,3,5],[3,4,3]],
+                [[0,1,10],[0,2,3],[1,2,1],[2,1,4],[2,3,2],[1,3,2],[3,4,7],[1,4,10]],
+                [[0,1,6],[0,2,2],[1,2,2],[1,3,5],[2,3,1],[3,4,5]],
+                [[0,1,1]]
+            ]
+        };
+        let currentAlgorithm = 'islands', currentTestCase = 0, gridData = [], graphData = [], visited = [], nodePositions = {}, m, n, delay = 500;
+        const gridDiv = document.getElementById('grid');
+    const graphContainer = document.getElementById('graphContainer');
+    const graphContainerPQ = document.getElementById('graphContainerPQ');
+    const graphContainerSet = document.getElementById('graphContainerSet');
+    const graphSplit = document.getElementById('graphSplit');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedLabel = document.getElementById('speedLabel');
+        const testCaseSelect = document.getElementById('testCase');
+        const customInput = document.getElementById('customGrid');
+        const customInputLabel = document.getElementById('customInputLabel');
+        const customHelp = document.getElementById('customHelp');
+        const questionsList = document.getElementById('questionsList');
+        const controlPanel = document.getElementById('controlPanel');
+        const algoTitle = document.getElementById('algoTitle');
+        const backBtn = document.getElementById('backBtn');
+        const toggleCodeBtn = document.getElementById('toggleCodeBtn');
+        const codePanel = document.getElementById('codePanel');
+        const startBtn = document.getElementById('startBtn');
+        function isMatrixAlgorithm() { return ['islands', 'surrounded'].includes(currentAlgorithm); }
+        function renderQuestionsList() { questionsList.innerHTML = ''; Object.entries(algorithmMeta).forEach(([k, info]) => { const d = document.createElement('div'); d.className = 'qa-card'; d.innerHTML = `<div class="text-lg font-semibold mb-1">${info.title}</div><div class="text-sm text-gray-600">${info.desc}</div>`; d.onclick = () => openQuestion(k); questionsList.appendChild(d); }); }
+        function showLanding() { questionsList.style.display = 'grid'; controlPanel.style.display = 'none'; gridDiv.style.display = 'none'; graphContainer.style.display = 'none'; if (graphSplit) graphSplit.style.display = 'none'; const cont = document.getElementById('dijkstraMethodContainer'); if (cont) cont.style.display = 'none'; const srcCont = document.getElementById('sourceNodeContainer'); if (srcCont) srcCont.style.display = 'none'; toggleCodeBtn.style.display = 'none'; codePanel.classList.add('hidden'); document.getElementById('intuition').textContent = 'Pick a question to visualize.'; if (location.hash !== '') history.pushState(null, '', location.pathname); }
+    function openQuestion(k) { currentAlgorithm = k; algoTitle.textContent = algorithmMeta[k].title; questionsList.style.display = 'none'; controlPanel.style.display = 'block'; updateTestCaseOptions(); testCaseSelect.value = '0'; currentTestCase = 0; customInput.value = ''; const cont = document.getElementById('dijkstraMethodContainer'); const srcCont = document.getElementById('sourceNodeContainer'); if (currentAlgorithm === 'dijkstra') { if (cont) cont.style.display = 'block'; if (srcCont) srcCont.style.display = 'block'; const meth = document.getElementById('dijkstraMethod'); if (meth) meth.value = 'pq'; setCodeSnippet('dijkstraPQ'); } else { if (cont) cont.style.display = 'none'; if (srcCont) srcCont.style.display = 'none'; setCodeSnippet(currentAlgorithm); } if (graphSplit) graphSplit.style.display = 'none'; if (isMatrixAlgorithm()) { gridData = testCases[currentAlgorithm][0].map(r => [...r]); m = gridData.length; n = gridData[0].length; renderGrid(); } else { graphData = testCases[currentAlgorithm][0].map(r => [...r]); renderGraph(); } document.getElementById('intuition').textContent = 'Click Start Visualization to see the algorithm in action.'; history.pushState({ algorithm: k }, '', `#${k}`); }
+        backBtn.addEventListener('click', showLanding);
+    function updateTestCaseOptions() { testCaseSelect.innerHTML = ''; testCases[currentAlgorithm].forEach((_, i) => { const opt = document.createElement('option'); opt.value = i; opt.textContent = `Test Case ${i + 1}`; testCaseSelect.appendChild(opt); }); if (isMatrixAlgorithm()) { customInputLabel.textContent = 'Custom Grid:'; customInput.placeholder = currentAlgorithm === 'islands' ? '1 1 1\n0 1 0\n1 1 1' : 'X X X X\nX O O X\nX X O X\nX O X X'; customHelp.textContent = 'Use 1/0 or X/O separated by spaces or commas.'; } else if (currentAlgorithm === 'dijkstra') { customInputLabel.textContent = 'Custom Weighted Graph (edge list):'; customInput.placeholder = 'u v w\n0 1 2\n1 2 5'; customHelp.textContent = 'Each line: u v w (space/comma). Weight defaults to 1 if omitted.'; } else { customInputLabel.textContent = 'Custom Graph (edge list):'; customInput.placeholder = '0 1\n1 2\n2 3\n3 0'; customHelp.textContent = 'Each line two integers (u v) separated by space or comma.'; } }
+        function renderGrid() { gridDiv.style.display = 'grid'; graphContainer.style.display = 'none'; gridDiv.innerHTML = ''; gridDiv.style.gridTemplateColumns = `repeat(${n},40px)`; gridData.forEach((row, i) => row.forEach((cell, j) => { const d = document.createElement('div'); let cls = 'cell border rounded '; if (currentAlgorithm === 'islands') cls += (cell === '1' ? 'bg-green-300' : 'bg-gray-300'); else cls += (cell === 'O' ? 'bg-blue-300' : 'bg-gray-600'); d.className = cls; d.id = `cell-${i}-${j}`; d.textContent = cell; gridDiv.appendChild(d); })); }
+        function calculateNodePositions(cnt, w, h) { const pos = {}, cx = w / 2, cy = h / 2, outerR = Math.min(w, h) / 2 - 70; if (cnt <= 8) { for (let i = 0; i < cnt; i++) { const ang = 2 * Math.PI * i / cnt; pos[i] = { x: cx + outerR * Math.cos(ang), y: cy + outerR * Math.sin(ang) }; } } else { const outer = Math.ceil(cnt / 2), inner = cnt - outer, innerR = outerR * .55; for (let i = 0; i < outer; i++) { const ang = 2 * Math.PI * i / outer; pos[i] = { x: cx + outerR * Math.cos(ang), y: cy + outerR * Math.sin(ang) }; } for (let i = 0; i < inner; i++) { const ang = 2 * Math.PI * i / inner; pos[outer + i] = { x: cx + innerR * Math.cos(ang), y: cy + innerR * Math.sin(ang) }; } } return pos; }
+    function renderGraph(container = graphContainer, idPrefix = '') { gridDiv.style.display = 'none'; container.style.display = 'block'; container.innerHTML = `<svg id="${idPrefix}graphSvg" width="100%" height="100%" viewBox="0 0 900 500"></svg>`; const svg = document.getElementById(`${idPrefix}graphSvg`); const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker'); marker.setAttribute('id', `${idPrefix}arrow`); marker.setAttribute('markerWidth', '10'); marker.setAttribute('markerHeight', '10'); marker.setAttribute('refX', '8'); marker.setAttribute('refY', '3'); marker.setAttribute('orient', 'auto'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M0,0 L0,6 L9,3 z'); path.setAttribute('fill', '#9CA3AF'); marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs); const nodesSet = new Set(); graphData.forEach(e => { const f = e[0], t = e[1]; nodesSet.add(f); nodesSet.add(t); }); const nodes = Array.from(nodesSet).sort((a, b) => a - b); if (!nodes.length) return; const width = 900, height = 500; const posIndex = calculateNodePositions(nodes.length, width, height); const indexOf = new Map(nodes.map((id, idx) => [id, idx])); graphData.forEach(e => { const f = e[0], to = e[1]; const w = e.length > 2 ? e[2] : undefined; const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); const fi = indexOf.get(f), ti = indexOf.get(to); const fp = posIndex[fi], tp = posIndex[ti]; line.setAttribute('id', `${idPrefix}edge-${f}-${to}`); line.setAttribute('x1', fp.x); line.setAttribute('y1', fp.y); line.setAttribute('x2', tp.x); line.setAttribute('y2', tp.y); line.setAttribute('stroke', '#9CA3AF'); line.setAttribute('stroke-width', '2'); if (currentAlgorithm === 'cycleDirected') line.setAttribute('marker-end', `url(#${idPrefix}arrow)`); svg.appendChild(line); if (w !== undefined && currentAlgorithm === 'dijkstra') { const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text'); tx.setAttribute('x', (fp.x + tp.x) / 2); tx.setAttribute('y', (fp.y + tp.y) / 2 - 5); tx.setAttribute('fill', '#111827'); tx.setAttribute('font-size', '12'); tx.setAttribute('text-anchor', 'middle'); tx.textContent = w; svg.appendChild(tx); } }); nodes.forEach(id => { const idx = indexOf.get(id); const p = posIndex[idx]; const n = document.createElement('div'); n.className = 'node bg-blue-300 border-2 border-blue-500'; n.id = `${idPrefix}node-${id}`; n.textContent = id; n.style.left = `${p.x - 25}px`; n.style.top = `${p.y - 25}px`; const badge = document.createElement('div'); badge.className = 'badge hidden'; badge.id = `${idPrefix}dist-${id}`; badge.textContent = '∞'; n.appendChild(badge); container.appendChild(n); }); }
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    async function highlightEdge(u, v, color = '#f59e0b', width = 4, idPrefix = '') { const e = document.getElementById(`${idPrefix}edge-${u}-${v}`) || document.getElementById(`${idPrefix}edge-${v}-${u}`); if (e) { e.setAttribute('stroke', color); e.setAttribute('stroke-width', width); } await sleep(delay / 2); }
+        async function DFS_Islands(i, j) { if (i < 0 || i >= m || j < 0 || j >= n || gridData[i][j] === '0' || visited[i][j]) return; visited[i][j] = true; const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-green-300'); d.classList.add('bg-blue-400'); await sleep(delay); await DFS_Islands(i + 1, j); await DFS_Islands(i - 1, j); await DFS_Islands(i, j + 1); await DFS_Islands(i, j - 1); }
+        async function DFS_SurroundedRegions(i, j) { if (i < 0 || i >= m || j < 0 || j >= n || gridData[i][j] === 'X' || visited[i][j]) return; visited[i][j] = true; const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-blue-300'); d.classList.add('bg-green-400'); await sleep(delay); await DFS_SurroundedRegions(i + 1, j); await DFS_SurroundedRegions(i - 1, j); await DFS_SurroundedRegions(i, j + 1); await DFS_SurroundedRegions(i, j - 1); }
+    function buildAdjacencyList() { const adj = {}; const nodes = new Set(); graphData.forEach(e=>{nodes.add(e[0]); nodes.add(e[1]);}); Array.from(nodes).forEach(id => adj[id] = []); graphData.forEach(e => { const f=e[0], t=e[1]; adj[f].push(t); if (currentAlgorithm !== 'cycleDirected') adj[t].push(f); }); return adj; }
+    function buildAdjacencyListWeighted() { const adj = {}; const nodes = new Set(); graphData.forEach(e => { const u = e[0], v = e[1]; nodes.add(u); nodes.add(v); }); Array.from(nodes).forEach(id => adj[id] = []); graphData.forEach(e => { const u = e[0], v = e[1], w = e[2] ?? 1; adj[u].push({ to: v, w }); adj[v].push({ to: u, w }); }); return adj; }
+        async function BFS_Traversal() { const adj = buildAdjacencyList(); const start = Math.min(...new Set(graphData.flat())); const q = [start]; const vis = new Set([start]); const order = []; while (q.length) { const u = q.shift(); order.push(u); const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-red-400'); await sleep(delay); for (const nb of adj[u] || []) { if (!vis.has(nb)) { await highlightEdge(u, nb); vis.add(nb); q.push(nb); const nd2 = document.getElementById(`node-${nb}`); nd2.classList.remove('bg-blue-300'); nd2.classList.add('bg-yellow-300'); await sleep(delay / 2); } } } return order; }
+        async function DFS_Traversal_Graph(u, adj, vis, res) { if (vis.has(u)) return; vis.add(u); res.push(u); const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-red-400'); await sleep(delay); for (const nb of adj[u] || []) if (!vis.has(nb)) { await highlightEdge(u, nb); await DFS_Traversal_Graph(nb, adj, vis, res); } }
+        async function checkCycleUndirected(u, parent, adj, vis) { vis.add(u); const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-yellow-300'); await sleep(delay); for (const nb of adj[u] || []) { if (!vis.has(nb)) { await highlightEdge(u, nb); if (await checkCycleUndirected(nb, u, adj, vis)) return true; } else if (nb !== parent) { await highlightEdge(u, nb, '#ef4444', 6); document.getElementById(`node-${nb}`).classList.add('bg-red-500'); nd.classList.add('bg-red-500'); await sleep(delay); return true; } } return false; }
+        async function checkBipartite() { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); const color = {}; for (const i of nodes) { if (!(i in color)) { const q = [{ node: i, color: 0 }]; color[i] = 0; while (q.length) { const { node, c } = (() => { const t = q.shift(); return { node: t.node, color: t.color }; })(); const nd = document.getElementById(`node-${node}`); nd.classList.remove('bg-blue-300'); nd.classList.add(c === 0 ? 'bg-red-300' : 'bg-green-300'); await sleep(delay); for (const nb of adj[node] || []) { await highlightEdge(node, nb, c === 0 ? '#f87171' : '#34d399', 3); if (!(nb in color)) { color[nb] = 1 - c; q.push({ node: nb, color: 1 - c }); } else if (color[nb] === c) { document.getElementById(`node-${nb}`).classList.add('bg-gray-800'); nd.classList.add('bg-gray-800'); return false; } } } } } return true; }
+        async function visualizeShortestPathBFS() { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); if (!nodes.length) return {}; const start = nodes[0]; const dist = Object.fromEntries(nodes.map(n => [n, -1])); const q = [start]; dist[start] = 0; document.getElementById(`dist-${start}`)?.classList.remove('hidden'); document.getElementById(`dist-${start}`).textContent = '0'; document.getElementById(`node-${start}`).classList.add('bg-green-400'); await sleep(delay); while (q.length) { const u = q.shift(); for (const v of adj[u] || []) { if (dist[v] === -1) { await highlightEdge(u, v, '#3b82f6', 4); dist[v] = dist[u] + 1; q.push(v); const nd = document.getElementById(`node-${v}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-green-300'); const badge = document.getElementById(`dist-${v}`); if (badge) { badge.classList.remove('hidden'); badge.textContent = dist[v]; } await sleep(delay / 1.5); } } } return dist; }
+        function parseCustomMatrix(txt) { const rows = txt.split(/\n+/).map(r => r.trim()).filter(Boolean); if (!rows.length) throw new Error('Empty grid'); const data = rows.map(r => r.split(/[ ,]+/).map(x => x.trim())); const c = data[0].length; if (!data.every(r => r.length === c)) throw new Error('Unequal row lengths'); return data; }
+    function parseCustomGraph(txt) { const lines = txt.split(/\n+/).map(l => l.trim()).filter(Boolean); if (!lines.length) throw new Error('Empty edge list'); const edges = []; lines.forEach(l => { const p = l.split(/[ ,]+/).map(x => x.trim()).filter(Boolean); if (currentAlgorithm === 'dijkstra') { if (p.length !== 2 && p.length !== 3) throw new Error('Line must have 2 or 3 numbers (u v [w]): ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); const w = p.length === 3 ? parseFloat(p[2]) : 1; if ([u, v, w].some(Number.isNaN)) throw new Error('Invalid number in: ' + l); edges.push([u, v, w]); } else { if (p.length !== 2) throw new Error('Line must have 2 numbers: ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); if (Number.isNaN(u) || Number.isNaN(v)) throw new Error('Invalid number in: ' + l); edges.push([u, v]); } }); return edges; }
+        async function startVisualization() {
+            const txt = customInput.value.trim(); if (txt) { try { if (isMatrixAlgorithm()) gridData = parseCustomMatrix(txt); else graphData = parseCustomGraph(txt); } catch (e) { alert('Input Error: ' + e.message); return; } } else { if (isMatrixAlgorithm()) gridData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); else graphData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); }
+            const method = currentAlgorithm === 'dijkstra' ? ((document.getElementById('dijkstraMethod')||{}).value || 'pq') : null;
+            if (isMatrixAlgorithm()) { m = gridData.length; n = gridData[0].length; visited = Array.from({ length: m }, () => Array(n).fill(false)); renderGrid(); }
+            else {
+                if (currentAlgorithm === 'dijkstra' && method === 'both') {
+                    graphContainer.style.display = 'none';
+                    if (graphSplit) graphSplit.style.display = 'block';
+                    renderGraph(graphContainerPQ, 'pq-');
+                    renderGraph(graphContainerSet, 'set-');
+                } else {
+                    if (graphSplit) graphSplit.style.display = 'none';
+                    renderGraph(graphContainer, '');
+                }
+            }
+            let result = '';
+            switch (currentAlgorithm) {
+                case 'islands': { let count = 0; for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) if (gridData[i][j] === '1' && !visited[i][j]) { await DFS_Islands(i, j); count++; } result = `<b>Algorithm:</b> DFS Number of Islands<br><b>Total Islands Found:</b> ${count}`; break; }
+                case 'surrounded': { for (let i = 0; i < m; i++) { if (!visited[i][0] && gridData[i][0] === 'O') await DFS_SurroundedRegions(i, 0); if (!visited[i][n - 1] && gridData[i][n - 1] === 'O') await DFS_SurroundedRegions(i, n - 1); } for (let j = 0; j < n; j++) { if (!visited[0][j] && gridData[0][j] === 'O') await DFS_SurroundedRegions(0, j); if (!visited[m - 1][j] && gridData[m - 1][j] === 'O') await DFS_SurroundedRegions(m - 1, j); } let flipped = 0; for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) if (gridData[i][j] === 'O' && !visited[i][j]) { const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-blue-300'); d.classList.add('bg-red-500'); await sleep(Math.max(100, delay / 2)); gridData[i][j] = 'X'; d.textContent = 'X'; d.classList.remove('bg-red-500'); d.classList.add('bg-gray-600'); flipped++; await sleep(60); } result = `<b>Algorithm:</b> Surrounded Regions<br><b>Cells Flipped:</b> ${flipped}`; break; }
+                case 'bfs': { const order = await BFS_Traversal(); result = `<b>Algorithm:</b> BFS Traversal<br><b>Order:</b> ${order.join(' → ')}`; break; }
+                case 'dfs': { const adj = buildAdjacencyList(); const vis = new Set(); const out = []; const start = Math.min(...new Set(graphData.flat())); await DFS_Traversal_Graph(start, adj, vis, out); result = `<b>Algorithm:</b> DFS Traversal<br><b>Order:</b> ${out.join(' → ')}`; break; }
+                case 'cycleUndirected': { const adj = buildAdjacencyList(); const vis = new Set(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); let cyc = false; for (const nd of nodes) if (!vis.has(nd)) if (await checkCycleUndirected(nd, -1, adj, vis)) { cyc = true; break; } result = `<b>Algorithm:</b> Cycle Detection (Undirected)<br><b>Cycle:</b> ${cyc ? 'Yes' : 'No'}`; break; }
+                case 'cycleDirected': { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); const indegree = Object.fromEntries(nodes.map(n => [n, 0])); graphData.forEach(([u, v]) => indegree[v]++); const q = nodes.filter(n => indegree[n] === 0); let processed = 0; while (q.length) { const u = q.shift(); processed++; const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-green-400'); await sleep(delay); for (const v of adj[u] || []) { await highlightEdge(u, v, '#60a5fa', 3); if (--indegree[v] === 0) { q.push(v); const nd2 = document.getElementById(`node-${v}`); nd2.classList.add('bg-yellow-200'); await sleep(delay / 3); } } } result = `<b>Algorithm:</b> Cycle Detection (Directed)<br><b>Cycle:</b> ${processed !== nodes.length ? 'Yes' : 'No'}`; break; }
+                case 'bipartite': { const bip = await checkBipartite(); result = `<b>Algorithm:</b> Bipartite Graph Check<br><b>Is Bipartite:</b> ${bip ? 'Yes' : 'No'}`; break; }
+                case 'shortestPath': { const dist = await visualizeShortestPathBFS(); const ordered = Object.entries(dist).sort((a, b) => a[0] - b[0]).map(([k, v]) => `${k}:${v}`); result = `<b>Algorithm:</b> Shortest Path BFS<br><b>Distances:</b> ${ordered.join(', ')}`; break; }
+                case 'dijkstra': { const nodes = Array.from(new Set(graphData.map(e=>e[0]).concat(graphData.map(e=>e[1])))).sort((a,b)=>a-b); if (!nodes.length) { result = 'No graph data.'; break; } let src = parseInt((document.getElementById('sourceNode')||{}).value, 10); if (Number.isNaN(src) || !nodes.includes(src)) src = nodes[0]; const methodLocal = (document.getElementById('dijkstraMethod')||{}).value || 'pq'; const fmt = (o)=>Object.entries(o).sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}:${(v===Infinity?'INF':v)}`); if (methodLocal === 'pq') { const dist = await visualizeDijkstraPQ(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Priority Queue)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Initialize all distances to INF; pick the smallest tentative distance from a min-heap and relax edges. Always processing the closest node avoids unnecessary relaxations. Time ~ O(E log V).`; } else if (methodLocal === 'set') { const dist = await visualizeDijkstraSet(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Set)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Use an ordered set keyed by distance; when a shorter path is found, update the set. Ensures the smallest distance is processed first. Time ~ O(E log V).`; } else { // both
+                        if (graphSplit) graphSplit.style.display = 'block'; graphContainer.style.display = 'none';
+                        renderGraph(graphContainerPQ, 'pq-'); renderGraph(graphContainerSet, 'set-');
+                        const [distPQ, distSet] = await Promise.all([
+                            visualizeDijkstraPQ(src, graphContainerPQ, 'pq-'),
+                            visualizeDijkstraSet(src, graphContainerSet, 'set-')
+                        ]);
+                        const ordPQ = fmt(distPQ); const ordSet = fmt(distSet);
+                        result = `<b>Algorithm:</b> Dijkstra Comparison<br><b>Source:</b> ${src}<br><b>Priority Queue:</b> ${ordPQ.join(', ')}<br><b>Set:</b> ${ordSet.join(', ')}<br><br><b>Intuition:</b> Both process the closest node next; PQ uses min-heap, Set uses ordered container with updates. Both achieve O(E log V).`; }
+                    break; }
+            }
+            document.getElementById('intuition').innerHTML = result;
+        }
+        // Dijkstra visualizers
+        async function visualizeDijkstraPQ(src, container = graphContainer, idPrefix = '') {
+            const adj = buildAdjacencyListWeighted();
+            const nodes = Array.from(new Set(graphData.map(e=>e[0]).concat(graphData.map(e=>e[1])))).sort((a,b)=>a-b);
+            const dist = Object.fromEntries(nodes.map(n=>[n, Infinity]));
+            dist[src] = 0;
+            const heap = [];
+            const push = (item)=>{ heap.push(item); heap.sort((a,b)=>a.d-b.d); };
+            const pop = ()=>heap.shift();
+            push({d:0,u:src});
+            const settled = new Set();
+            const setBadge = (v)=>{ const b = document.getElementById(`${idPrefix}dist-${v}`); if (b) { b.classList.remove('hidden'); b.textContent = (dist[v]===Infinity?'∞':dist[v]); } };
+            setBadge(src);
+            const colorNode = (v, clsAdd, clsRemove)=>{ const nd = document.getElementById(`${idPrefix}node-${v}`); if (nd) { if (clsRemove) nd.classList.remove(clsRemove); nd.classList.add(clsAdd); } };
+            colorNode(src, 'bg-green-400', 'bg-blue-300');
+            await sleep(delay);
+            while (heap.length) {
+                const {d,u} = pop();
+                if (d !== dist[u]) continue;
+                if (settled.has(u)) continue;
+                settled.add(u);
+                colorNode(u, 'bg-green-500');
+                await sleep(delay/2);
+                for (const {to:wv, w} of adj[u] || []) {
+                    await highlightEdge(u, wv, '#3b82f6', 4, idPrefix);
+                    if (dist[u] + w < dist[wv]) {
+                        dist[wv] = dist[u] + w;
+                        setBadge(wv);
+                        colorNode(wv, 'bg-yellow-300');
+                        push({d:dist[wv], u:wv});
+                        await sleep(delay/2);
+                    }
+                }
+            }
+            return dist;
+        }
+        async function visualizeDijkstraSet(src, container = graphContainer, idPrefix = '') {
+            const adj = buildAdjacencyListWeighted();
+            const nodes = Array.from(new Set(graphData.map(e=>e[0]).concat(graphData.map(e=>e[1])))).sort((a,b)=>a-b);
+            const dist = Object.fromEntries(nodes.map(n=>[n, Infinity]));
+            dist[src] = 0;
+            const set = new Map(); // key: node, value: dist
+            set.set(src, 0);
+            const pickMin = ()=>{ let mn=Infinity, mu=null; for (const [u,d] of set.entries()) if (d<mn) { mn=d; mu=u; } if (mu!==null) set.delete(mu); return [mu,mn]; };
+            const setBadge = (v)=>{ const b = document.getElementById(`${idPrefix}dist-${v}`); if (b) { b.classList.remove('hidden'); b.textContent = (dist[v]===Infinity?'∞':dist[v]); } };
+            setBadge(src);
+            const colorNode = (v, clsAdd, clsRemove)=>{ const nd = document.getElementById(`${idPrefix}node-${v}`); if (nd) { if (clsRemove) nd.classList.remove(clsRemove); nd.classList.add(clsAdd); } };
+            colorNode(src, 'bg-green-400', 'bg-blue-300');
+            await sleep(delay);
+            while (set.size) {
+                const [u, d] = pickMin();
+                if (u === null) break;
+                if (d !== dist[u]) continue;
+                colorNode(u, 'bg-green-500');
+                await sleep(delay/2);
+                for (const {to:wv, w} of adj[u] || []) {
+                    await highlightEdge(u, wv, '#10b981', 4, idPrefix);
+                    if (dist[u] + w < dist[wv]) {
+                        // update set: remove old if present
+                        if (set.has(wv)) set.delete(wv);
+                        dist[wv] = dist[u] + w;
+                        set.set(wv, dist[wv]);
+                        setBadge(wv);
+                        colorNode(wv, 'bg-yellow-300');
+                        await sleep(delay/2);
+                    }
+                }
+            }
+            return dist;
+        }
+        // Code snippets
+        const cppSnippets = {
+            bfs: `#include <bits/stdc++.h>
+using namespace std;
+
+vector<int> bfs(vector<vector<int>>& adj) {
+    int n = adj.size();
+    vector<int> res, vis(n);
+    queue<int> q;
+    vis[0] = 1;
+    q.push(0);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        res.push_back(u);
+        for (int v : adj[u]) {
+            if (!vis[v]) {
+                vis[v] = 1;
+                q.push(v);
+            }
+        }
+    }
+    return res;
+}`,
+            dfs: `#include <bits/stdc++.h>
+using namespace std;
+
+void DFSUtil(vector<vector<int>>& adj, int u, vector<int>& vis, vector<int>& res) {
+    vis[u] = 1;
+    res.push_back(u);
+    for (int v : adj[u])
+        if (!vis[v])
+            DFSUtil(adj, v, vis, res);
+}
+
+vector<int> dfs(vector<vector<int>>& adj) {
+    int n = adj.size();
+    vector<int> res, vis(n);
+    DFSUtil(adj, 0, vis, res);
+    return res;
+}`,
+            cycleUndirected: `#include <bits/stdc++.h>
+using namespace std;
+
+bool dfsCycle(int u, int parent, vector<int>& vis, vector<int> adj[]) {
+    vis[u] = 1;
+    for (int v : adj[u]) {
+        if (!vis[v]) {
+            if (dfsCycle(v, u, vis, adj)) return true;
+        } else if (v != parent) {
+            return true; // back-edge found
+        }
+    }
+    return false;
+}
+
+bool isCycle(int V, vector<vector<int>>& edges) {
+    vector<int> adj[V];
+    for (auto &e : edges) adj[e[0]].push_back(e[1]), adj[e[1]].push_back(e[0]);
+    vector<int> vis(V);
+    for (int i = 0; i < V; ++i)
+        if (!vis[i] && dfsCycle(i, -1, vis, adj))
+            return true;
+    return false;
+}`,
+            cycleDirected: `#include <bits/stdc++.h>
+using namespace std;
+
+bool hasDirectedCycle(int V, vector<vector<int>>& edges) {
+    vector<vector<int>> adj(V);
+    vector<int> indegree(V);
+    for (auto &e : edges) {
+        adj[e[0]].push_back(e[1]);
+        indegree[e[1]]++;
+    }
+    queue<int> q;
+    for (int i = 0; i < V; ++i)
+        if (indegree[i] == 0) q.push(i);
+    int processed = 0;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        processed++;
+        for (int v : adj[u])
+            if (--indegree[v] == 0)
+                q.push(v);
+    }
+    return processed != V; // if not all processed => cycle
+}`,
+            surrounded: `#include <bits/stdc++.h>
+using namespace std;
+
+void dfsMark(vector<vector<char>>& b, int i, int j, vector<vector<int>>& vis) {
+    int n = b.size(), m = b[0].size();
+    vis[i][j] = 1;
+    int d[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
+    for (auto &x : d) {
+        int ni = i + x[0], nj = j + x[1];
+        if (0 <= ni && ni < n && 0 <= nj && nj < m && !vis[ni][nj] && b[ni][nj] == 'O')
+            dfsMark(b, ni, nj, vis);
+    }
+}
+
+void solve(vector<vector<char>>& b) {
+    int n = b.size(), m = b[0].size();
+    vector<vector<int>> vis(n, vector<int>(m));
+    // Border DFS
+    for (int i = 0; i < n; ++i) {
+        if (b[i][0] == 'O' && !vis[i][0]) dfsMark(b, i, 0, vis);
+        if (b[i][m-1] == 'O' && !vis[i][m-1]) dfsMark(b, i, m-1, vis);
+    }
+    for (int j = 0; j < m; ++j) {
+        if (b[0][j] == 'O' && !vis[0][j]) dfsMark(b, 0, j, vis);
+        if (b[n-1][j] == 'O' && !vis[n-1][j]) dfsMark(b, n-1, j, vis);
+    }
+    // Flip enclosed
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < m; ++j)
+            if (b[i][j] == 'O' && !vis[i][j])
+                b[i][j] = 'X';
+}`,
+            bipartite: `#include <bits/stdc++.h>
+using namespace std;
+
+bool isBipartite(vector<vector<int>>& g) {
+    int n = g.size();
+    vector<int> col(n, -1);
+    for (int i = 0; i < n; ++i) if (col[i] == -1) {
+        queue<int> q; q.push(i); col[i] = 0;
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (int v : g[u]) {
+                if (col[v] == -1) { col[v] = col[u] ^ 1; q.push(v); }
+                else if (col[v] == col[u]) return false;
+            }
+        }
+    }
+    return true;
+}`,
+            islands: `#include <bits/stdc++.h>
+using namespace std;
+
+void dfs(vector<vector<char>>& g, int i, int j) {
+    if (i < 0 || i >= (int)g.size() || j < 0 || j >= (int)g[0].size() || g[i][j] == '0') return;
+    g[i][j] = '0';
+    dfs(g, i+1, j);
+    dfs(g, i-1, j);
+    dfs(g, i, j+1);
+    dfs(g, i, j-1);
+}
+
+int numIslands(vector<vector<char>>& g) {
+    int n = g.size(), m = g[0].size(), c = 0;
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < m; ++j)
+            if (g[i][j] == '1') { dfs(g, i, j); ++c; }
+    return c;
+}`,
+            shortestPath: `#include <bits/stdc++.h>
+using namespace std;
+
+vector<int> shortest(vector<vector<int>>& adj, int s) {
+    int n = adj.size();
+    vector<int> d(n, -1);
+    queue<int> q;
+    d[s] = 0;
+    q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (int v : adj[u]) {
+            if (d[v] == -1) {
+                d[v] = d[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+    return d;
+}`,
+            dijkstraPQ: `// DIJKSTRA'S ALGORITHM (priority queue)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> &edges, int src) {\n    vector<vector<pair<int,int>>> adj(V);\n    for (auto &e : edges) {\n        int u=e[0], v=e[1], w=e[2];\n        adj[u].push_back({v,w});\n        adj[v].push_back({u,w});\n    }\n    vector<int> dist(V, 1e9);\n    dist[src]=0;\n    priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;\n    pq.push({0, src});\n    while(!pq.empty()){\n        auto [d,u]=pq.top(); pq.pop();\n        if (d!=dist[u]) continue;\n        for (auto [v,w]: adj[u]){\n            if (d + w < dist[v]){\n                dist[v] = d + w;\n                pq.push({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}`,
+            dijkstraSet: `// DIJKSTRA'S ALGORITHM (set)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> &edges, int src) {\n    vector<vector<pair<int,int>>> adj(V);\n    for (auto &e : edges) {\n        int u=e[0], v=e[1], w=e[2];\n        adj[u].push_back({v,w});\n        adj[v].push_back({u,w});\n    }\n    vector<int> dist(V, 1e9);\n    dist[src]=0;\n    set<pair<int,int>> st;\n    st.insert({0, src});\n    while(!st.empty()){\n        auto it = *st.begin();\n        st.erase(st.begin());\n        int d = it.first, u = it.second;\n        for (auto [v,w]: adj[u]){\n            if (d + w < dist[v]){\n                if (dist[v] != 1e9) st.erase({dist[v], v});\n                dist[v] = d + w;\n                st.insert({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}`
+        };
+    function setCodeSnippet(k) { const code = cppSnippets[k] || ''; const block = document.getElementById('codeBlock'); block.textContent = code; toggleCodeBtn.style.display = code ? 'inline-block' : 'none'; if (window.hljs) hljs.highlightElement(block); }
+        const toggleBtn = toggleCodeBtn; toggleBtn.addEventListener('click', () => { const hidden = codePanel.classList.contains('hidden'); if (hidden) { codePanel.classList.remove('hidden'); toggleBtn.textContent = 'Hide Code'; if (window.hljs) hljs.highlightElement(document.getElementById('codeBlock')); } else { codePanel.classList.add('hidden'); toggleBtn.textContent = 'Show Code'; } });
+        renderQuestionsList(); showLanding();
+        window.addEventListener('popstate', e => { if (e.state && e.state.algorithm) openQuestion(e.state.algorithm); else showLanding(); });
+        window.addEventListener('load', () => { const h = location.hash.slice(1); if (h && algorithmMeta[h]) openQuestion(h); });
+        if (startBtn) startBtn.addEventListener('click', startVisualization);
+        speedSlider.addEventListener('input', () => { const v = +speedSlider.value; if (v === 1) { delay = 800; speedLabel.textContent = 'Slow'; } else if (v === 2) { delay = 500; speedLabel.textContent = 'Medium'; } else { delay = 200; speedLabel.textContent = 'Fast'; } });
+    if (testCaseSelect) testCaseSelect.addEventListener('change', e => {
+        currentTestCase = +e.target.value || 0;
+        if (isMatrixAlgorithm()) {
+            gridData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]);
+            m = gridData.length; n = gridData[0].length; renderGrid();
+        } else {
+            graphData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]);
+            if (currentAlgorithm === 'dijkstra' && (document.getElementById('dijkstraMethod')||{}).value === 'both') {
+                if (graphSplit) graphSplit.style.display = 'block'; graphContainer.style.display = 'none';
+                renderGraph(graphContainerPQ, 'pq-'); renderGraph(graphContainerSet, 'set-');
+            } else {
+                if (graphSplit) graphSplit.style.display = 'none';
+                renderGraph(graphContainer, '');
+            }
+        }
+        document.getElementById('intuition').textContent = 'Ready. Click Start Visualization.';
+    });
+    const dijkstraMethodEl = document.getElementById('dijkstraMethod');
+    if (dijkstraMethodEl) dijkstraMethodEl.addEventListener('change', () => {
+        if (currentAlgorithm === 'dijkstra') {
+            const mth = dijkstraMethodEl.value;
+            if (mth === 'set') setCodeSnippet('dijkstraSet');
+            else if (mth === 'pq') setCodeSnippet('dijkstraPQ');
+            else setCodeSnippet('dijkstraPQ');
+            // re-render containers
+            if (mth === 'both') {
+                if (graphSplit) graphSplit.style.display = 'block'; graphContainer.style.display = 'none';
+                renderGraph(graphContainerPQ, 'pq-'); renderGraph(graphContainerSet, 'set-');
+            } else {
+                if (graphSplit) graphSplit.style.display = 'none';
+                renderGraph(graphContainer, '');
+            }
+            document.getElementById('intuition').textContent = 'Ready. Click Start Visualization.';
+        }
+    });
+    </script>
+</body>
+
+</html>
