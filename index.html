@@ -133,7 +133,6 @@
                     <option value="bipartite">Bipartite Graph Check</option>
                     <option value="surrounded">Surrounded Regions</option>
                     <option value="shortestPath">Shortest Path (Unweighted)</option>
-
                 </select>
             </div>
             <div>
@@ -181,6 +180,15 @@
             </div>
         </div>
     </div>
+    <div id="fwMatrixSection" class="w-full max-w-5xl" style="display:none;">
+        <div class="text-sm font-semibold mb-1" id="fwMatrixTitle">Distance Matrix (Initial)</div>
+        <div id="fwMatrixGrid" class="grid gap-1 mb-2"></div>
+        <div id="fwStepLabel" class="text-xs text-gray-600"></div>
+    </div>
+    <div id="kahnPanel" class="w-full max-w-5xl" style="display:none;">
+        <div class="text-sm font-semibold mb-1">Indegree (Kahn's Algorithm)</div>
+        <div id="indegreeArray" class="flex flex-wrap gap-2"></div>
+    </div>
     <div id="intuition" class="bg-white p-4 shadow rounded max-w-4xl text-center text-gray-700">Pick a question to
         visualize.</div>
     <div class="w-full max-w-5xl mt-4">
@@ -194,17 +202,36 @@
             surrounded: { title: 'Surrounded Regions', desc: 'Mark border-connected regions; flip the rest.' },
             bfs: { title: 'BFS Traversal', desc: 'Level-order traversal of a graph using a queue.' },
             dfs: { title: 'DFS Traversal', desc: 'Depth-first traversal using recursion/stack.' },
+            topoSortDFS: { title: 'Topological Sort (DFS)', desc: 'DFS post-order on DAG (reverse finishing times).' },
+            topoSort: { title: 'Topological Sort (BFS)', desc: 'Linear ordering of DAG nodes (Kahn’s algorithm).' },
             cycleUndirected: { title: 'Cycle Detection (Undirected)', desc: 'Detect cycles with parent tracking.' },
             cycleDirected: { title: 'Cycle Detection (Directed)', desc: 'Detect cycles using Kahn\'s Topological Sort.' },
             bipartite: { title: 'Bipartite Graph Check', desc: 'Two-color the graph using BFS.' },
             shortestPath: { title: 'Shortest Path (Unweighted Graph)', desc: 'BFS distances from a source.' },
-            dijkstra: { title: "Dijkstra's Algorithm (Weighted)", desc: 'Single-source shortest paths with positive weights.' }
+            dijkstra: { title: "Dijkstra's Algorithm (Weighted)", desc: 'Single-source shortest paths with positive weights.' },
+            bellmanFord: { title: 'Bellman-Ford (Weighted)', desc: 'SSSP with negative edges; detects negative cycles.' },
+            floydWarshall: { title: 'Floyd-Warshall (All-Pairs)', desc: 'All-pairs shortest paths via DP.' },
+            mst: { title: 'Minimum Spanning Tree (Prim)', desc: 'Connect all nodes with minimum total cost.' }
         };
         const testCases = {
             islands: [[['1', '1', '1'], ['0', '1', '0'], ['1', '1', '1']], [['1', '0', '1'], ['0', '1', '0'], ['1', '0', '1']], [['0', '0', '0'], ['0', '0', '0'], ['0', '0', '0']], [['1', '1', '1'], ['1', '1', '1'], ['1', '1', '1']], [['1']]],
             surrounded: [[['X', 'X', 'X', 'X'], ['X', 'O', 'O', 'X'], ['X', 'X', 'O', 'X'], ['X', 'O', 'X', 'X']], [['X', 'O', 'X'], ['O', 'X', 'O'], ['X', 'O', 'X']], [['O', 'O', 'O'], ['O', 'O', 'O'], ['O', 'O', 'O']], [['X', 'X', 'X'], ['X', 'X', 'X'], ['X', 'X', 'X']], [['O']]],
             bfs: [[[0, 1], [0, 2], [1, 2], [2, 3], [3, 4]], [[0, 1], [1, 2], [2, 3], [0, 3], [3, 4], [4, 5]], [[0, 1], [1, 2], [2, 0], [3, 4]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
             dfs: [[[0, 1], [0, 2], [1, 2], [2, 3], [3, 4]], [[0, 1], [1, 2], [2, 3], [0, 3], [3, 4], [4, 5]], [[0, 1], [1, 2], [2, 0], [3, 4]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
+            topoSortDFS: [
+                [[0,1],[0,2],[1,3],[2,3],[3,4]],
+                [[5,0],[5,2],[4,0],[4,1],[2,3],[3,1]],
+                [[1,2],[1,3],[3,4],[2,4]],
+                [[0,1],[1,2],[2,3]],
+                [[0,2],[1,2]]
+            ],
+            topoSort: [
+                [[0,1],[0,2],[1,3],[2,3],[3,4]],
+                [[5,0],[5,2],[4,0],[4,1],[2,3],[3,1]],
+                [[1,2],[1,3],[3,4],[2,4]],
+                [[0,1],[1,2],[2,3]],
+                [[0,2],[1,2]]
+            ],
             cycleUndirected: [[[0, 1], [1, 2], [2, 3], [3, 1]], [[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
             cycleDirected: [[[0, 1], [1, 2], [2, 3], [3, 1]], [[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1], [0, 2], [1, 3], [2, 3]], [[0, 1]]],
             bipartite: [[[0, 1], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 3], [3, 0]], [[0, 1], [0, 3], [1, 2], [2, 3]], [[0, 1], [1, 2], [2, 0]], [[0, 1]]],
@@ -215,15 +242,29 @@
                 [[0,1,10],[0,2,3],[1,2,1],[2,1,4],[2,3,2],[1,3,2],[3,4,7],[1,4,10]],
                 [[0,1,6],[0,2,2],[1,2,2],[1,3,5],[2,3,1],[3,4,5]],
                 [[0,1,1]]
+            ],
+            bellmanFord: [
+                [[0,1,2],[0,2,5],[1,2,1],[1,3,2],[2,3,3],[3,4,1]],
+                [[0,1,4],[0,2,1],[2,1,2],[1,3,-2],[2,3,5],[3,4,3]],
+                [[0,1,1],[1,2,-1],[2,3,-1],[3,0,-1]]
+            ],
+            mst: [
+                [[0,1,2],[0,2,5],[1,2,1],[1,3,2],[2,3,3],[3,4,1]],
+                [[0,1,4],[0,2,1],[2,1,2],[1,3,1],[2,3,5],[3,4,3]]
+            ],
+            floydWarshall: [
+                [[0,3,1e8,7],[8,0,2,1e8],[5,1e8,0,2],[2,1e8,1e8,0]],
+                [[0,5,1e8,10],[1e8,0,3,1e8],[1e8,1e8,0,1],[1e8,1e8,1e8,0]]
             ]
         };
-        let currentAlgorithm = 'islands', currentTestCase = 0, gridData = [], graphData = [], visited = [], nodePositions = {}, m, n, delay = 500;
+    let currentAlgorithm = 'islands', currentTestCase = 0, gridData = [], graphData = [], visited = [], nodePositions = {}, m, n, delay = 500;
+    let fwMatrix = [];
         const gridDiv = document.getElementById('grid');
     const graphContainer = document.getElementById('graphContainer');
     const graphContainerPQ = document.getElementById('graphContainerPQ');
     const graphContainerSet = document.getElementById('graphContainerSet');
     const graphSplit = document.getElementById('graphSplit');
-        const speedSlider = document.getElementById('speedSlider');
+    const speedSlider = document.getElementById('speedSlider');
         const speedLabel = document.getElementById('speedLabel');
         const testCaseSelect = document.getElementById('testCase');
         const customInput = document.getElementById('customGrid');
@@ -236,20 +277,132 @@
         const toggleCodeBtn = document.getElementById('toggleCodeBtn');
         const codePanel = document.getElementById('codePanel');
         const startBtn = document.getElementById('startBtn');
-        function isMatrixAlgorithm() { return ['islands', 'surrounded'].includes(currentAlgorithm); }
+    const fwMatrixSection = document.getElementById('fwMatrixSection');
+    const fwMatrixGrid = document.getElementById('fwMatrixGrid');
+    const fwMatrixTitle = document.getElementById('fwMatrixTitle');
+    const fwStepLabel = document.getElementById('fwStepLabel');
+    const kahnPanel = document.getElementById('kahnPanel');
+    const indegreeArrayDiv = document.getElementById('indegreeArray');
+    function isMatrixAlgorithm() { return ['islands', 'surrounded'].includes(currentAlgorithm); }
+    function isWeightedAlgorithm() { return ['dijkstra','bellmanFord','mst'].includes(currentAlgorithm); }
         function renderQuestionsList() { questionsList.innerHTML = ''; Object.entries(algorithmMeta).forEach(([k, info]) => { const d = document.createElement('div'); d.className = 'qa-card'; d.innerHTML = `<div class="text-lg font-semibold mb-1">${info.title}</div><div class="text-sm text-gray-600">${info.desc}</div>`; d.onclick = () => openQuestion(k); questionsList.appendChild(d); }); }
-        function showLanding() { questionsList.style.display = 'grid'; controlPanel.style.display = 'none'; gridDiv.style.display = 'none'; graphContainer.style.display = 'none'; if (graphSplit) graphSplit.style.display = 'none'; const cont = document.getElementById('dijkstraMethodContainer'); if (cont) cont.style.display = 'none'; const srcCont = document.getElementById('sourceNodeContainer'); if (srcCont) srcCont.style.display = 'none'; toggleCodeBtn.style.display = 'none'; codePanel.classList.add('hidden'); document.getElementById('intuition').textContent = 'Pick a question to visualize.'; if (location.hash !== '') history.pushState(null, '', location.pathname); }
-    function openQuestion(k) { currentAlgorithm = k; algoTitle.textContent = algorithmMeta[k].title; questionsList.style.display = 'none'; controlPanel.style.display = 'block'; updateTestCaseOptions(); testCaseSelect.value = '0'; currentTestCase = 0; customInput.value = ''; const cont = document.getElementById('dijkstraMethodContainer'); const srcCont = document.getElementById('sourceNodeContainer'); if (currentAlgorithm === 'dijkstra') { if (cont) cont.style.display = 'block'; if (srcCont) srcCont.style.display = 'block'; const meth = document.getElementById('dijkstraMethod'); if (meth) meth.value = 'pq'; setCodeSnippet('dijkstraPQ'); } else { if (cont) cont.style.display = 'none'; if (srcCont) srcCont.style.display = 'none'; setCodeSnippet(currentAlgorithm); } if (graphSplit) graphSplit.style.display = 'none'; if (isMatrixAlgorithm()) { gridData = testCases[currentAlgorithm][0].map(r => [...r]); m = gridData.length; n = gridData[0].length; renderGrid(); } else { graphData = testCases[currentAlgorithm][0].map(r => [...r]); renderGraph(); } document.getElementById('intuition').textContent = 'Click Start Visualization to see the algorithm in action.'; history.pushState({ algorithm: k }, '', `#${k}`); }
+    function showLanding() { questionsList.style.display = 'grid'; controlPanel.style.display = 'none'; gridDiv.style.display = 'none'; graphContainer.style.display = 'none'; if (graphSplit) graphSplit.style.display = 'none'; const cont = document.getElementById('dijkstraMethodContainer'); if (cont) cont.style.display = 'none'; const srcCont = document.getElementById('sourceNodeContainer'); if (srcCont) srcCont.style.display = 'none'; if (kahnPanel) kahnPanel.style.display = 'none'; if (fwMatrixSection) fwMatrixSection.style.display = 'none'; toggleCodeBtn.style.display = 'none'; codePanel.classList.add('hidden'); document.getElementById('intuition').textContent = 'Pick a question to visualize.'; if (location.hash !== '') history.pushState(null, '', location.pathname); }
+    function openQuestion(k) { currentAlgorithm = k; algoTitle.textContent = algorithmMeta[k].title; questionsList.style.display = 'none'; controlPanel.style.display = 'block'; updateTestCaseOptions(); testCaseSelect.value = '0'; currentTestCase = 0; customInput.value = ''; const cont = document.getElementById('dijkstraMethodContainer'); const srcCont = document.getElementById('sourceNodeContainer'); if (currentAlgorithm === 'dijkstra') { if (cont) cont.style.display = 'block'; if (srcCont) srcCont.style.display = 'block'; const meth = document.getElementById('dijkstraMethod'); if (meth) meth.value = 'pq'; setCodeSnippet('dijkstraPQ'); } else { if (cont) cont.style.display = 'none'; if (currentAlgorithm === 'bellmanFord') { if (srcCont) srcCont.style.display = 'block'; } else { if (srcCont) srcCont.style.display = 'none'; } setCodeSnippet(currentAlgorithm); } if (graphSplit) graphSplit.style.display = 'none';
+        // Reset FW UI
+    if (fwMatrixSection) fwMatrixSection.style.display = 'none';
+    if (kahnPanel) kahnPanel.style.display = 'none';
+        if (isMatrixAlgorithm()) { gridData = testCases[currentAlgorithm][0].map(r => [...r]); m = gridData.length; n = gridData[0].length; renderGrid(); }
+        else if (currentAlgorithm === 'floydWarshall') {
+            fwMatrix = normalizeFWMatrix(cloneMatrix(testCases.floydWarshall[0]));
+            graphContainer.style.display = 'block';
+            renderFWGraph(fwMatrix, graphContainer, 'fw-');
+            fwMatrixSection.style.display = 'block';
+            fwMatrixTitle.textContent = 'Distance Matrix (Initial)';
+            renderFWMatrixGrid(fwMatrix);
+    } else { graphData = testCases[currentAlgorithm][0].map(r => [...r]); renderGraph(); if (currentAlgorithm === 'topoSort') { const nodes = Array.from(new Set(graphData.flat())).sort((a,b)=>a-b); const indegree = Object.fromEntries(nodes.map(n=>[n,0])); graphData.forEach(([u,v])=>indegree[v] = (indegree[v]||0)+1); showKahnIndegree(nodes, indegree); } }
+        document.getElementById('intuition').textContent = 'Click Start Visualization to see the algorithm in action.'; history.pushState({ algorithm: k }, '', `#${k}`); }
         backBtn.addEventListener('click', showLanding);
-    function updateTestCaseOptions() { testCaseSelect.innerHTML = ''; testCases[currentAlgorithm].forEach((_, i) => { const opt = document.createElement('option'); opt.value = i; opt.textContent = `Test Case ${i + 1}`; testCaseSelect.appendChild(opt); }); if (isMatrixAlgorithm()) { customInputLabel.textContent = 'Custom Grid:'; customInput.placeholder = currentAlgorithm === 'islands' ? '1 1 1\n0 1 0\n1 1 1' : 'X X X X\nX O O X\nX X O X\nX O X X'; customHelp.textContent = 'Use 1/0 or X/O separated by spaces or commas.'; } else if (currentAlgorithm === 'dijkstra') { customInputLabel.textContent = 'Custom Weighted Graph (edge list):'; customInput.placeholder = 'u v w\n0 1 2\n1 2 5'; customHelp.textContent = 'Each line: u v w (space/comma). Weight defaults to 1 if omitted.'; } else { customInputLabel.textContent = 'Custom Graph (edge list):'; customInput.placeholder = '0 1\n1 2\n2 3\n3 0'; customHelp.textContent = 'Each line two integers (u v) separated by space or comma.'; } }
+    function updateTestCaseOptions() { testCaseSelect.innerHTML = ''; testCases[currentAlgorithm].forEach((_, i) => { const opt = document.createElement('option'); opt.value = i; opt.textContent = `Test Case ${i + 1}`; testCaseSelect.appendChild(opt); }); if (isMatrixAlgorithm()) { customInputLabel.textContent = 'Custom Grid:'; customInput.placeholder = currentAlgorithm === 'islands' ? '1 1 1\n0 1 0\n1 1 1' : 'X X X X\nX O O X\nX X O X\nX O X X'; customHelp.textContent = 'Use 1/0 or X/O separated by spaces or commas.'; } else if (currentAlgorithm === 'dijkstra' || currentAlgorithm === 'bellmanFord' || currentAlgorithm === 'mst') { customInputLabel.textContent = 'Custom Weighted Graph (edge list):'; customInput.placeholder = 'u v w\n0 1 2\n1 2 5'; customHelp.textContent = 'Each line: u v w (space/comma). Weight defaults to 1 if omitted; undirected assumed.'; } else if (currentAlgorithm === 'floydWarshall') { customInputLabel.textContent = 'Custom Weight Matrix:'; customInput.placeholder = '0 3 INF 7\n8 0 2 INF\n5 INF 0 2\n2 INF INF 0'; customHelp.textContent = 'n x n matrix; use numbers, INF or 1e8 for no edge.'; } else { customInputLabel.textContent = 'Custom Graph (edge list):'; customInput.placeholder = '0 1\n1 2\n2 3\n3 0'; customHelp.textContent = 'Each line two integers (u v) separated by space or comma.'; } }
         function renderGrid() { gridDiv.style.display = 'grid'; graphContainer.style.display = 'none'; gridDiv.innerHTML = ''; gridDiv.style.gridTemplateColumns = `repeat(${n},40px)`; gridData.forEach((row, i) => row.forEach((cell, j) => { const d = document.createElement('div'); let cls = 'cell border rounded '; if (currentAlgorithm === 'islands') cls += (cell === '1' ? 'bg-green-300' : 'bg-gray-300'); else cls += (cell === 'O' ? 'bg-blue-300' : 'bg-gray-600'); d.className = cls; d.id = `cell-${i}-${j}`; d.textContent = cell; gridDiv.appendChild(d); })); }
         function calculateNodePositions(cnt, w, h) { const pos = {}, cx = w / 2, cy = h / 2, outerR = Math.min(w, h) / 2 - 70; if (cnt <= 8) { for (let i = 0; i < cnt; i++) { const ang = 2 * Math.PI * i / cnt; pos[i] = { x: cx + outerR * Math.cos(ang), y: cy + outerR * Math.sin(ang) }; } } else { const outer = Math.ceil(cnt / 2), inner = cnt - outer, innerR = outerR * .55; for (let i = 0; i < outer; i++) { const ang = 2 * Math.PI * i / outer; pos[i] = { x: cx + outerR * Math.cos(ang), y: cy + outerR * Math.sin(ang) }; } for (let i = 0; i < inner; i++) { const ang = 2 * Math.PI * i / inner; pos[outer + i] = { x: cx + innerR * Math.cos(ang), y: cy + innerR * Math.sin(ang) }; } } return pos; }
-    function renderGraph(container = graphContainer, idPrefix = '') { gridDiv.style.display = 'none'; container.style.display = 'block'; container.innerHTML = `<svg id="${idPrefix}graphSvg" width="100%" height="100%" viewBox="0 0 900 500"></svg>`; const svg = document.getElementById(`${idPrefix}graphSvg`); const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker'); marker.setAttribute('id', `${idPrefix}arrow`); marker.setAttribute('markerWidth', '10'); marker.setAttribute('markerHeight', '10'); marker.setAttribute('refX', '8'); marker.setAttribute('refY', '3'); marker.setAttribute('orient', 'auto'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M0,0 L0,6 L9,3 z'); path.setAttribute('fill', '#9CA3AF'); marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs); const nodesSet = new Set(); graphData.forEach(e => { const f = e[0], t = e[1]; nodesSet.add(f); nodesSet.add(t); }); const nodes = Array.from(nodesSet).sort((a, b) => a - b); if (!nodes.length) return; const width = 900, height = 500; const posIndex = calculateNodePositions(nodes.length, width, height); const indexOf = new Map(nodes.map((id, idx) => [id, idx])); graphData.forEach(e => { const f = e[0], to = e[1]; const w = e.length > 2 ? e[2] : undefined; const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); const fi = indexOf.get(f), ti = indexOf.get(to); const fp = posIndex[fi], tp = posIndex[ti]; line.setAttribute('id', `${idPrefix}edge-${f}-${to}`); line.setAttribute('x1', fp.x); line.setAttribute('y1', fp.y); line.setAttribute('x2', tp.x); line.setAttribute('y2', tp.y); line.setAttribute('stroke', '#9CA3AF'); line.setAttribute('stroke-width', '2'); if (currentAlgorithm === 'cycleDirected') line.setAttribute('marker-end', `url(#${idPrefix}arrow)`); svg.appendChild(line); if (w !== undefined && currentAlgorithm === 'dijkstra') { const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text'); tx.setAttribute('x', (fp.x + tp.x) / 2); tx.setAttribute('y', (fp.y + tp.y) / 2 - 5); tx.setAttribute('fill', '#111827'); tx.setAttribute('font-size', '12'); tx.setAttribute('text-anchor', 'middle'); tx.textContent = w; svg.appendChild(tx); } }); nodes.forEach(id => { const idx = indexOf.get(id); const p = posIndex[idx]; const n = document.createElement('div'); n.className = 'node bg-blue-300 border-2 border-blue-500'; n.id = `${idPrefix}node-${id}`; n.textContent = id; n.style.left = `${p.x - 25}px`; n.style.top = `${p.y - 25}px`; const badge = document.createElement('div'); badge.className = 'badge hidden'; badge.id = `${idPrefix}dist-${id}`; badge.textContent = '∞'; n.appendChild(badge); container.appendChild(n); }); }
+    function renderGraph(container = graphContainer, idPrefix = '') { gridDiv.style.display = 'none'; container.style.display = 'block'; container.innerHTML = `<svg id="${idPrefix}graphSvg" width="100%" height="100%" viewBox="0 0 900 500"></svg>`; const svg = document.getElementById(`${idPrefix}graphSvg`); const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker'); marker.setAttribute('id', `${idPrefix}arrow`); marker.setAttribute('markerWidth', '10'); marker.setAttribute('markerHeight', '10'); marker.setAttribute('refX', '8'); marker.setAttribute('refY', '3'); marker.setAttribute('orient', 'auto'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M0,0 L0,6 L9,3 z'); path.setAttribute('fill', '#9CA3AF'); marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs); const nodesSet = new Set(); graphData.forEach(e => { const f = e[0], t = e[1]; nodesSet.add(f); nodesSet.add(t); }); const nodes = Array.from(nodesSet).sort((a, b) => a - b); if (!nodes.length) return; const width = 900, height = 500; const posIndex = calculateNodePositions(nodes.length, width, height); const indexOf = new Map(nodes.map((id, idx) => [id, idx])); graphData.forEach(e => { const f = e[0], to = e[1]; const w = e.length > 2 ? e[2] : undefined; const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); const fi = indexOf.get(f), ti = indexOf.get(to); const fp = posIndex[fi], tp = posIndex[ti];
+        // Shorten edges so arrowheads don't go under node circles
+    const dx = tp.x - fp.x, dy = tp.y - fp.y; const dist = Math.hypot(dx, dy) || 1; const nodeR = 25; const arrowPad = 1; const x1 = fp.x + (dx / dist) * nodeR; const y1 = fp.y + (dy / dist) * nodeR; const x2 = tp.x - (dx / dist) * (nodeR + arrowPad); const y2 = tp.y - (dy / dist) * (nodeR + arrowPad);
+        line.setAttribute('id', `${idPrefix}edge-${f}-${to}`); line.setAttribute('x1', x1); line.setAttribute('y1', y1); line.setAttribute('x2', x2); line.setAttribute('y2', y2); line.setAttribute('stroke', '#9CA3AF'); line.setAttribute('stroke-width', '2'); if (currentAlgorithm === 'cycleDirected' || currentAlgorithm === 'topoSort' || currentAlgorithm === 'topoSortDFS') line.setAttribute('marker-end', `url(#${idPrefix}arrow)`); svg.appendChild(line); if (w !== undefined && (currentAlgorithm === 'dijkstra' || currentAlgorithm === 'bellmanFord' || currentAlgorithm === 'mst')) { const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text'); tx.setAttribute('x', (x1 + x2) / 2); tx.setAttribute('y', (y1 + y2) / 2 - 5); tx.setAttribute('fill', '#111827'); tx.setAttribute('font-size', '12'); tx.setAttribute('text-anchor', 'middle'); tx.textContent = w; svg.appendChild(tx); } }); nodes.forEach(id => { const idx = indexOf.get(id); const p = posIndex[idx]; const n = document.createElement('div'); n.className = 'node bg-blue-300 border-2 border-blue-500'; n.id = `${idPrefix}node-${id}`; n.textContent = id; n.style.left = `${p.x - 25}px`; n.style.top = `${p.y - 25}px`; const badge = document.createElement('div'); badge.className = 'badge hidden'; badge.id = `${idPrefix}dist-${id}`; badge.textContent = '∞'; n.appendChild(badge); container.appendChild(n); }); }
+    function renderFWGraph(matrix, container = graphContainer, idPrefix='fw-') {
+        // From matrix, infer complete node list 0..n-1 and draw directed edges for finite weights
+        gridDiv.style.display = 'none';
+        container.style.display = 'block';
+        container.innerHTML = `<svg id="${idPrefix}graphSvg" width="100%" height="100%" viewBox="0 0 900 500"></svg>`;
+        const svg = document.getElementById(`${idPrefix}graphSvg`);
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', `${idPrefix}arrow`);
+        marker.setAttribute('markerWidth', '10'); marker.setAttribute('markerHeight', '10');
+        marker.setAttribute('refX', '8'); marker.setAttribute('refY', '3'); marker.setAttribute('orient', 'auto');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M0,0 L0,6 L9,3 z'); path.setAttribute('fill', '#9CA3AF');
+        marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs);
+        const n = matrix.length; const nodes = Array.from({length:n}, (_,i)=>i);
+        const width=900, height=500; const posIndex = calculateNodePositions(n, width, height);
+        nodes.forEach(u => {
+            nodes.forEach(v => {
+                if (u===v) return;
+                const w = matrix[u][v];
+                if (w !== Infinity) {
+                    const fi=u, ti=v; const fp = posIndex[fi], tp = posIndex[ti];
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    // Shorten edges so arrowheads don't go under node circles
+                    const dx = tp.x - fp.x, dy = tp.y - fp.y; const dist = Math.hypot(dx, dy) || 1; const nodeR = 25; const arrowPad = 1; const x1 = fp.x + (dx / dist) * nodeR; const y1 = fp.y + (dy / dist) * nodeR; const x2 = tp.x - (dx / dist) * (nodeR + arrowPad); const y2 = tp.y - (dy / dist) * (nodeR + arrowPad);
+                    line.setAttribute('id', `fw-edge-${u}-${v}`);
+                    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                    line.setAttribute('stroke', '#9CA3AF'); line.setAttribute('stroke-width','2');
+                    line.setAttribute('marker-end', `url(#${idPrefix}arrow)`);
+                    svg.appendChild(line);
+                    const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    tx.setAttribute('x', (x1 + x2) / 2);
+                    tx.setAttribute('y', (y1 + y2) / 2 - 5);
+                    tx.setAttribute('fill', '#111827'); tx.setAttribute('font-size','12'); tx.setAttribute('text-anchor','middle');
+                    tx.textContent = w;
+                    svg.appendChild(tx);
+                }
+            });
+        });
+        nodes.forEach(id => {
+            const p = posIndex[id];
+            const ndiv = document.createElement('div');
+            ndiv.className = 'node bg-blue-300 border-2 border-blue-500';
+            ndiv.id = `${idPrefix}node-${id}`; ndiv.textContent = id;
+            ndiv.style.left = `${p.x - 25}px`; ndiv.style.top = `${p.y - 25}px`;
+            container.appendChild(ndiv);
+        });
+    }
+    function renderFWMatrixGrid(matrix) {
+        const n = matrix.length;
+        fwMatrixGrid.innerHTML = '';
+        fwMatrixGrid.style.gridTemplateColumns = `repeat(${n+1}, 48px)`;
+        // header row
+        const corner = document.createElement('div'); corner.className='text-xs text-gray-500'; corner.textContent=''; fwMatrixGrid.appendChild(corner);
+        for (let j=0;j<n;j++){ const h=document.createElement('div'); h.className='text-xs font-semibold text-center'; h.textContent=j; fwMatrixGrid.appendChild(h); }
+        for (let i=0;i<n;i++){
+            const rowHdr=document.createElement('div'); rowHdr.className='text-xs font-semibold text-center'; rowHdr.textContent=i; fwMatrixGrid.appendChild(rowHdr);
+            for (let j=0;j<n;j++){
+                const cell=document.createElement('div');
+                cell.id = `fwcell-${i}-${j}`;
+                cell.className='cell border rounded bg-white text-sm';
+                const v = matrix[i][j];
+                cell.textContent = (v===Infinity?'INF':v);
+                fwMatrixGrid.appendChild(cell);
+            }
+        }
+    }
+    function showKahnIndegree(nodes, indegree) {
+        if (!kahnPanel) return;
+        kahnPanel.style.display = 'block';
+        indegreeArrayDiv.innerHTML = '';
+        nodes.forEach(n => {
+            const tile = document.createElement('div');
+            tile.id = `inDeg-${n}`;
+            tile.className = 'px-2 py-1 border rounded bg-white text-sm';
+            tile.textContent = `${n}: ${indegree[n] ?? 0}`;
+            indegreeArrayDiv.appendChild(tile);
+            // also reflect on badge
+            const b = document.getElementById(`dist-${n}`);
+            if (b) { b.classList.remove('hidden'); b.textContent = indegree[n] ?? 0; }
+        });
+    }
+    function updateKahnIndegreeItem(node, val) {
+        const el = document.getElementById(`inDeg-${node}`);
+        if (el) el.textContent = `${node}: ${val}`;
+        const b = document.getElementById(`dist-${node}`);
+        if (b) { b.classList.remove('hidden'); b.textContent = val; if (val === 0) { b.style.background = '#065f46'; b.style.color = '#fff'; } }
+    }
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     async function highlightEdge(u, v, color = '#f59e0b', width = 4, idPrefix = '') { const e = document.getElementById(`${idPrefix}edge-${u}-${v}`) || document.getElementById(`${idPrefix}edge-${v}-${u}`); if (e) { e.setAttribute('stroke', color); e.setAttribute('stroke-width', width); } await sleep(delay / 2); }
         async function DFS_Islands(i, j) { if (i < 0 || i >= m || j < 0 || j >= n || gridData[i][j] === '0' || visited[i][j]) return; visited[i][j] = true; const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-green-300'); d.classList.add('bg-blue-400'); await sleep(delay); await DFS_Islands(i + 1, j); await DFS_Islands(i - 1, j); await DFS_Islands(i, j + 1); await DFS_Islands(i, j - 1); }
         async function DFS_SurroundedRegions(i, j) { if (i < 0 || i >= m || j < 0 || j >= n || gridData[i][j] === 'X' || visited[i][j]) return; visited[i][j] = true; const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-blue-300'); d.classList.add('bg-green-400'); await sleep(delay); await DFS_SurroundedRegions(i + 1, j); await DFS_SurroundedRegions(i - 1, j); await DFS_SurroundedRegions(i, j + 1); await DFS_SurroundedRegions(i, j - 1); }
-    function buildAdjacencyList() { const adj = {}; const nodes = new Set(); graphData.forEach(e=>{nodes.add(e[0]); nodes.add(e[1]);}); Array.from(nodes).forEach(id => adj[id] = []); graphData.forEach(e => { const f=e[0], t=e[1]; adj[f].push(t); if (currentAlgorithm !== 'cycleDirected') adj[t].push(f); }); return adj; }
+    function buildAdjacencyList() { const adj = {}; const nodes = new Set(); graphData.forEach(e=>{nodes.add(e[0]); nodes.add(e[1]);}); Array.from(nodes).forEach(id => adj[id] = []); graphData.forEach(e => { const f=e[0], t=e[1]; adj[f].push(t); const directedAlgos = ['cycleDirected','topoSort','topoSortDFS']; if (!directedAlgos.includes(currentAlgorithm)) adj[t].push(f); }); return adj; }
     function buildAdjacencyListWeighted() { const adj = {}; const nodes = new Set(); graphData.forEach(e => { const u = e[0], v = e[1]; nodes.add(u); nodes.add(v); }); Array.from(nodes).forEach(id => adj[id] = []); graphData.forEach(e => { const u = e[0], v = e[1], w = e[2] ?? 1; adj[u].push({ to: v, w }); adj[v].push({ to: u, w }); }); return adj; }
         async function BFS_Traversal() { const adj = buildAdjacencyList(); const start = Math.min(...new Set(graphData.flat())); const q = [start]; const vis = new Set([start]); const order = []; while (q.length) { const u = q.shift(); order.push(u); const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-red-400'); await sleep(delay); for (const nb of adj[u] || []) { if (!vis.has(nb)) { await highlightEdge(u, nb); vis.add(nb); q.push(nb); const nd2 = document.getElementById(`node-${nb}`); nd2.classList.remove('bg-blue-300'); nd2.classList.add('bg-yellow-300'); await sleep(delay / 2); } } } return order; }
         async function DFS_Traversal_Graph(u, adj, vis, res) { if (vis.has(u)) return; vis.add(u); res.push(u); const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-red-400'); await sleep(delay); for (const nb of adj[u] || []) if (!vis.has(nb)) { await highlightEdge(u, nb); await DFS_Traversal_Graph(nb, adj, vis, res); } }
@@ -257,11 +410,17 @@
         async function checkBipartite() { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); const color = {}; for (const i of nodes) { if (!(i in color)) { const q = [{ node: i, color: 0 }]; color[i] = 0; while (q.length) { const { node, c } = (() => { const t = q.shift(); return { node: t.node, color: t.color }; })(); const nd = document.getElementById(`node-${node}`); nd.classList.remove('bg-blue-300'); nd.classList.add(c === 0 ? 'bg-red-300' : 'bg-green-300'); await sleep(delay); for (const nb of adj[node] || []) { await highlightEdge(node, nb, c === 0 ? '#f87171' : '#34d399', 3); if (!(nb in color)) { color[nb] = 1 - c; q.push({ node: nb, color: 1 - c }); } else if (color[nb] === c) { document.getElementById(`node-${nb}`).classList.add('bg-gray-800'); nd.classList.add('bg-gray-800'); return false; } } } } } return true; }
         async function visualizeShortestPathBFS() { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); if (!nodes.length) return {}; const start = nodes[0]; const dist = Object.fromEntries(nodes.map(n => [n, -1])); const q = [start]; dist[start] = 0; document.getElementById(`dist-${start}`)?.classList.remove('hidden'); document.getElementById(`dist-${start}`).textContent = '0'; document.getElementById(`node-${start}`).classList.add('bg-green-400'); await sleep(delay); while (q.length) { const u = q.shift(); for (const v of adj[u] || []) { if (dist[v] === -1) { await highlightEdge(u, v, '#3b82f6', 4); dist[v] = dist[u] + 1; q.push(v); const nd = document.getElementById(`node-${v}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-green-300'); const badge = document.getElementById(`dist-${v}`); if (badge) { badge.classList.remove('hidden'); badge.textContent = dist[v]; } await sleep(delay / 1.5); } } } return dist; }
         function parseCustomMatrix(txt) { const rows = txt.split(/\n+/).map(r => r.trim()).filter(Boolean); if (!rows.length) throw new Error('Empty grid'); const data = rows.map(r => r.split(/[ ,]+/).map(x => x.trim())); const c = data[0].length; if (!data.every(r => r.length === c)) throw new Error('Unequal row lengths'); return data; }
-    function parseCustomGraph(txt) { const lines = txt.split(/\n+/).map(l => l.trim()).filter(Boolean); if (!lines.length) throw new Error('Empty edge list'); const edges = []; lines.forEach(l => { const p = l.split(/[ ,]+/).map(x => x.trim()).filter(Boolean); if (currentAlgorithm === 'dijkstra') { if (p.length !== 2 && p.length !== 3) throw new Error('Line must have 2 or 3 numbers (u v [w]): ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); const w = p.length === 3 ? parseFloat(p[2]) : 1; if ([u, v, w].some(Number.isNaN)) throw new Error('Invalid number in: ' + l); edges.push([u, v, w]); } else { if (p.length !== 2) throw new Error('Line must have 2 numbers: ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); if (Number.isNaN(u) || Number.isNaN(v)) throw new Error('Invalid number in: ' + l); edges.push([u, v]); } }); return edges; }
-        async function startVisualization() {
-            const txt = customInput.value.trim(); if (txt) { try { if (isMatrixAlgorithm()) gridData = parseCustomMatrix(txt); else graphData = parseCustomGraph(txt); } catch (e) { alert('Input Error: ' + e.message); return; } } else { if (isMatrixAlgorithm()) gridData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); else graphData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); }
+    function parseCustomGraph(txt) { const lines = txt.split(/\n+/).map(l => l.trim()).filter(Boolean); if (!lines.length) throw new Error('Empty edge list'); const edges = []; lines.forEach(l => { const p = l.split(/[ ,]+/).map(x => x.trim()).filter(Boolean); if (currentAlgorithm === 'dijkstra' || currentAlgorithm === 'bellmanFord' || currentAlgorithm === 'mst') { if (p.length !== 2 && p.length !== 3) throw new Error('Line must have 2 or 3 numbers (u v [w]): ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); const w = p.length === 3 ? parseFloat(p[2]) : 1; if ([u, v, w].some(Number.isNaN)) throw new Error('Invalid number in: ' + l); edges.push([u, v, w]); } else { if (p.length !== 2) throw new Error('Line must have 2 numbers: ' + l); const u = parseInt(p[0], 10), v = parseInt(p[1], 10); if (Number.isNaN(u) || Number.isNaN(v)) throw new Error('Invalid number in: ' + l); edges.push([u, v]); } }); return edges; }
+        function parseWeightMatrix(txt) { const rows = txt.split(/\n+/).map(r => r.trim()).filter(Boolean); if (!rows.length) throw new Error('Empty matrix'); const data = rows.map(r => r.split(/[ ,]+/).map(x => { const t = x.toUpperCase(); if (t === 'INF' || t === 'INFINITY' || t === '1E8') return Infinity; const v = Number(x); if (!Number.isFinite(v)) throw new Error('Invalid number: '+x); // treat very large as INF sentinel
+            return (t === '1E8' || v >= 1e14) ? Infinity : v; })); const n = data.length; if (!data.every(r => r.length === n)) throw new Error('Matrix must be square (n x n)'); return data; }
+        function normalizeFWMatrix(mat){ return mat.map(row=>row.map(v=> (v>=1e8 ? Infinity : v))); }
+        function cloneMatrix(mat){ return mat.map(r=>r.map(x=>x)); }
+        function formatMatrix(mat){ return mat.map(r=>r.map(v=>v===Infinity||v>=1e15?'INF':v).join(' ')).join('<br>'); }
+        function nodesFromGraphData(){ return Array.from(new Set(graphData.map(e=>e[0]).concat(graphData.map(e=>e[1])))).sort((a,b)=>a-b); }
+    async function startVisualization() {
+            const txt = customInput.value.trim(); if (txt) { try { if (currentAlgorithm === 'floydWarshall') fwMatrix = parseWeightMatrix(txt); else if (isMatrixAlgorithm()) gridData = parseCustomMatrix(txt); else graphData = parseCustomGraph(txt); } catch (e) { alert('Input Error: ' + e.message); return; } } else { if (currentAlgorithm === 'floydWarshall') fwMatrix = normalizeFWMatrix(cloneMatrix(testCases[currentAlgorithm][currentTestCase])); else if (isMatrixAlgorithm()) gridData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); else graphData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]); }
             const method = currentAlgorithm === 'dijkstra' ? ((document.getElementById('dijkstraMethod')||{}).value || 'pq') : null;
-            if (isMatrixAlgorithm()) { m = gridData.length; n = gridData[0].length; visited = Array.from({ length: m }, () => Array(n).fill(false)); renderGrid(); }
+        if (isMatrixAlgorithm()) { m = gridData.length; n = gridData[0].length; visited = Array.from({ length: m }, () => Array(n).fill(false)); renderGrid(); }
             else {
                 if (currentAlgorithm === 'dijkstra' && method === 'both') {
                     graphContainer.style.display = 'none';
@@ -270,7 +429,7 @@
                     renderGraph(graphContainerSet, 'set-');
                 } else {
                     if (graphSplit) graphSplit.style.display = 'none';
-                    renderGraph(graphContainer, '');
+            if (currentAlgorithm !== 'floydWarshall') renderGraph(graphContainer, '');
                 }
             }
             let result = '';
@@ -279,11 +438,167 @@
                 case 'surrounded': { for (let i = 0; i < m; i++) { if (!visited[i][0] && gridData[i][0] === 'O') await DFS_SurroundedRegions(i, 0); if (!visited[i][n - 1] && gridData[i][n - 1] === 'O') await DFS_SurroundedRegions(i, n - 1); } for (let j = 0; j < n; j++) { if (!visited[0][j] && gridData[0][j] === 'O') await DFS_SurroundedRegions(0, j); if (!visited[m - 1][j] && gridData[m - 1][j] === 'O') await DFS_SurroundedRegions(m - 1, j); } let flipped = 0; for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) if (gridData[i][j] === 'O' && !visited[i][j]) { const d = document.getElementById(`cell-${i}-${j}`); d.classList.remove('bg-blue-300'); d.classList.add('bg-red-500'); await sleep(Math.max(100, delay / 2)); gridData[i][j] = 'X'; d.textContent = 'X'; d.classList.remove('bg-red-500'); d.classList.add('bg-gray-600'); flipped++; await sleep(60); } result = `<b>Algorithm:</b> Surrounded Regions<br><b>Cells Flipped:</b> ${flipped}`; break; }
                 case 'bfs': { const order = await BFS_Traversal(); result = `<b>Algorithm:</b> BFS Traversal<br><b>Order:</b> ${order.join(' → ')}`; break; }
                 case 'dfs': { const adj = buildAdjacencyList(); const vis = new Set(); const out = []; const start = Math.min(...new Set(graphData.flat())); await DFS_Traversal_Graph(start, adj, vis, out); result = `<b>Algorithm:</b> DFS Traversal<br><b>Order:</b> ${out.join(' → ')}`; break; }
+                case 'topoSortDFS': {
+                    const nodes = Array.from(new Set(graphData.flat())).sort((a,b)=>a-b);
+                    if (!nodes.length) { result = 'No graph data.'; break; }
+                    const adj = buildAdjacencyList();
+                    const color = Object.fromEntries(nodes.map(n=>[n,0])); // 0=unvisited,1=visiting,2=visited
+                    const order = [];
+                    let hasCycle = false;
+                    async function dfsTopo(u){
+                        if (hasCycle) return; // early exit if cycle found
+                        color[u] = 1; // visiting
+                        const nd = document.getElementById(`node-${u}`); nd?.classList.add('bg-yellow-200');
+                        await sleep(delay/2);
+                        for (const v of adj[u] || []) {
+                            if (hasCycle) return;
+                            if (color[v] === 0) { await highlightEdge(u,v,'#34d399',3); await dfsTopo(v); }
+                            else if (color[v] === 1) {
+                                // back-edge => cycle
+                                await highlightEdge(u,v,'#ef4444',6);
+                                hasCycle = true;
+                                return;
+                            }
+                        }
+                        color[u] = 2; // done
+                        order.push(u);
+                        nd?.classList.remove('bg-yellow-200'); nd?.classList.add('bg-green-400');
+                        await sleep(delay/3);
+                    }
+                    for (const u of nodes) if (color[u]===0) await dfsTopo(u);
+                    if (hasCycle) {
+                        result = `<b>Algorithm:</b> Topological Sort (DFS)\n<br><b>DAG:</b> No (cycle detected)`;
+                    } else {
+                        order.reverse();
+                        result = `<b>Algorithm:</b> Topological Sort (DFS)\n<br><b>Order:</b> ${order.join(' → ')}\n<br><b>DAG:</b> Yes`;
+                    }
+                    break; }
+                case 'topoSort': {
+    // Enhanced Kahn's algorithm for topological sort with better visualization and error handling
+    try {
+        // Validate and process graph data
+        const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b);
+        if (!nodes.length) {
+            result = 'Error: No graph data provided.';
+            break;
+        }
+
+        // Initialize adjacency list and indegree map
+        const indegree = Object.fromEntries(nodes.map(n => [n, 0]));
+        const adj = Object.fromEntries(nodes.map(n => [n, []]));
+        graphData.forEach(([u, v]) => {
+            if (!nodes.includes(u) || !nodes.includes(v)) {
+                result = `Error: Invalid node(s) in edge [${u}, ${v}]`;
+                return;
+            }
+            adj[u].push(v);
+            indegree[v]++;
+        });
+
+        // Exit if there was an error in graph data
+        if (result) break;
+
+        // Show indegree panel for visualization
+        showKahnIndegree(nodes, indegree);
+
+        // Initialize queue with nodes having zero indegree
+        const q = [];
+        nodes.forEach(n => {
+            if (indegree[n] === 0) {
+                q.push(n);
+                const nd = document.getElementById(`node-${n}`);
+                nd?.classList.add('bg-yellow-200'); // Highlight starting nodes
+            }
+        });
+
+        const order = [];
+        let cycleEdges = [];
+
+        // Process nodes using BFS
+        while (q.length) {
+            const u = q.shift();
+            order.push(u);
+            const nd = document.getElementById(`node-${u}`);
+            nd?.classList.remove('bg-yellow-200');
+            nd?.classList.add('bg-green-400'); // Mark as processed
+            await sleep(delay / 1.2);
+
+            for (const v of adj[u]) {
+                await highlightEdge(u, v, '#60a5fa', 3); // Highlight edge
+                indegree[v]--;
+                updateKahnIndegreeItem(v, indegree[v]);
+
+                if (indegree[v] === 0) {
+                    q.push(v);
+                    const ndv = document.getElementById(`node-${v}`);
+                    ndv?.classList.add('bg-yellow-200'); // Mark as ready to process
+                }
+            }
+        }
+
+        // Check if topological sort is valid (DAG check)
+        const isDAG = order.length === nodes.length;
+        let cyclePathStr = '';
+        if (!isDAG) {
+            // Find an actual directed cycle among leftover nodes (not processed by Kahn)
+            const processed = new Set(order);
+            const leftover = nodes.filter(n => !processed.has(n));
+            const inLeft = new Set(leftover);
+            const subAdj = Object.fromEntries(leftover.map(n => [n, (adj[n]||[]).filter(v => inLeft.has(v))]));
+            const color = {}; // 0=unseen,1=visiting,2=done
+            const parent = {};
+            let cycleEdgesLocal = [];
+
+            function dfs(u) {
+                color[u] = 1;
+                for (const v of (subAdj[u] || [])) {
+                    if (!color[v]) { parent[v] = u; if (dfs(v)) return true; }
+                    else if (color[v] === 1) {
+                        // back-edge u -> v; reconstruct cycle v -> ... -> u -> v
+                        const path = [u];
+                        while (path[path.length - 1] !== v) path.push(parent[path[path.length - 1]]);
+                        path.reverse(); // now v ... u
+                        cycleEdgesLocal = [];
+                        for (let i = 0; i < path.length - 1; i++) cycleEdgesLocal.push([path[i], path[i + 1]]);
+                        cycleEdgesLocal.push([u, v]); // closing edge
+                        return true;
+                    }
+                }
+                color[u] = 2;
+                return false;
+            }
+
+            for (const s of leftover) { if (!color[s]) { if (dfs(s)) break; } }
+
+            // Highlight only the cycle edges
+            if (cycleEdgesLocal.length) {
+                for (const [u, v] of cycleEdgesLocal) { await highlightEdge(u, v, '#ef4444', 6); await sleep(delay / 3); }
+                cycleEdges = cycleEdgesLocal;
+                const nodesCycle = new Set(cycleEdges.flat());
+                cyclePathStr = Array.from(nodesCycle).join(' → ');
+            } else {
+                // Fallback: highlight any leftover edge
+                const fallback = graphData.find(([u, v]) => !processed.has(u) || !processed.has(v));
+                if (fallback) { const [u, v] = fallback; await highlightEdge(u, v, '#ef4444', 6); cycleEdges = [fallback]; cyclePathStr = `${u} → ${v}`; }
+            }
+        }
+
+        // Generate result string
+        result = `
+            <b>Algorithm:</b> Topological Sort (Kahn's Algorithm)<br>
+            <b>Order:</b> ${order.length ? order.join(' → ') : 'None'}<br>
+            <b>DAG:</b> ${isDAG ? 'Yes' : 'No'}${!isDAG ? `<br><b>Cycle:</b> ${cyclePathStr}` : ''}
+        `;
+    } catch (error) {
+        result = `Error: ${error.message}`;
+    }
+    break;
+}
                 case 'cycleUndirected': { const adj = buildAdjacencyList(); const vis = new Set(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); let cyc = false; for (const nd of nodes) if (!vis.has(nd)) if (await checkCycleUndirected(nd, -1, adj, vis)) { cyc = true; break; } result = `<b>Algorithm:</b> Cycle Detection (Undirected)<br><b>Cycle:</b> ${cyc ? 'Yes' : 'No'}`; break; }
                 case 'cycleDirected': { const adj = buildAdjacencyList(); const nodes = Array.from(new Set(graphData.flat())).sort((a, b) => a - b); const indegree = Object.fromEntries(nodes.map(n => [n, 0])); graphData.forEach(([u, v]) => indegree[v]++); const q = nodes.filter(n => indegree[n] === 0); let processed = 0; while (q.length) { const u = q.shift(); processed++; const nd = document.getElementById(`node-${u}`); nd.classList.remove('bg-blue-300'); nd.classList.add('bg-green-400'); await sleep(delay); for (const v of adj[u] || []) { await highlightEdge(u, v, '#60a5fa', 3); if (--indegree[v] === 0) { q.push(v); const nd2 = document.getElementById(`node-${v}`); nd2.classList.add('bg-yellow-200'); await sleep(delay / 3); } } } result = `<b>Algorithm:</b> Cycle Detection (Directed)<br><b>Cycle:</b> ${processed !== nodes.length ? 'Yes' : 'No'}`; break; }
                 case 'bipartite': { const bip = await checkBipartite(); result = `<b>Algorithm:</b> Bipartite Graph Check<br><b>Is Bipartite:</b> ${bip ? 'Yes' : 'No'}`; break; }
                 case 'shortestPath': { const dist = await visualizeShortestPathBFS(); const ordered = Object.entries(dist).sort((a, b) => a[0] - b[0]).map(([k, v]) => `${k}:${v}`); result = `<b>Algorithm:</b> Shortest Path BFS<br><b>Distances:</b> ${ordered.join(', ')}`; break; }
-                case 'dijkstra': { const nodes = Array.from(new Set(graphData.map(e=>e[0]).concat(graphData.map(e=>e[1])))).sort((a,b)=>a-b); if (!nodes.length) { result = 'No graph data.'; break; } let src = parseInt((document.getElementById('sourceNode')||{}).value, 10); if (Number.isNaN(src) || !nodes.includes(src)) src = nodes[0]; const methodLocal = (document.getElementById('dijkstraMethod')||{}).value || 'pq'; const fmt = (o)=>Object.entries(o).sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}:${(v===Infinity?'INF':v)}`); if (methodLocal === 'pq') { const dist = await visualizeDijkstraPQ(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Priority Queue)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Initialize all distances to INF; pick the smallest tentative distance from a min-heap and relax edges. Always processing the closest node avoids unnecessary relaxations. Time ~ O(E log V).`; } else if (methodLocal === 'set') { const dist = await visualizeDijkstraSet(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Set)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Use an ordered set keyed by distance; when a shorter path is found, update the set. Ensures the smallest distance is processed first. Time ~ O(E log V).`; } else { // both
+                case 'dijkstra': { const nodes = nodesFromGraphData(); if (!nodes.length) { result = 'No graph data.'; break; } let src = parseInt((document.getElementById('sourceNode')||{}).value, 10); if (Number.isNaN(src) || !nodes.includes(src)) src = nodes[0]; const methodLocal = (document.getElementById('dijkstraMethod')||{}).value || 'pq'; const fmt = (o)=>Object.entries(o).sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}:${(v===Infinity?'INF':v)}`); if (methodLocal === 'pq') { const dist = await visualizeDijkstraPQ(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Priority Queue)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Initialize all distances to INF; pick the smallest tentative distance from a min-heap and relax edges. Always processing the closest node avoids unnecessary relaxations. Time ~ O(E log V).`; } else if (methodLocal === 'set') { const dist = await visualizeDijkstraSet(src, graphContainer, ''); const ordered = fmt(dist); result = `<b>Algorithm:</b> Dijkstra (Set)<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><br><b>Intuition:</b> Use an ordered set keyed by distance; when a shorter path is found, update the set. Ensures the smallest distance is processed first. Time ~ O(E log V).`; } else { // both
                         if (graphSplit) graphSplit.style.display = 'block'; graphContainer.style.display = 'none';
                         renderGraph(graphContainerPQ, 'pq-'); renderGraph(graphContainerSet, 'set-');
                         const [distPQ, distSet] = await Promise.all([
@@ -293,8 +608,128 @@
                         const ordPQ = fmt(distPQ); const ordSet = fmt(distSet);
                         result = `<b>Algorithm:</b> Dijkstra Comparison<br><b>Source:</b> ${src}<br><b>Priority Queue:</b> ${ordPQ.join(', ')}<br><b>Set:</b> ${ordSet.join(', ')}<br><br><b>Intuition:</b> Both process the closest node next; PQ uses min-heap, Set uses ordered container with updates. Both achieve O(E log V).`; }
                     break; }
+                case 'bellmanFord': {
+                    const nodes = nodesFromGraphData(); if (!nodes.length) { result = 'No graph data.'; break; }
+                    let src = parseInt((document.getElementById('sourceNode')||{}).value, 10); if (Number.isNaN(src) || !nodes.includes(src)) src = nodes[0];
+                    const { dist, hasNegCycle } = await visualizeBellmanFord(src);
+                    const ordered = Object.entries(dist).sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}:${(v===Infinity?'INF':v)}`);
+                    result = `<b>Algorithm:</b> Bellman-Ford<br><b>Source:</b> ${src}<br><b>Distances:</b> ${ordered.join(', ')}<br><b>Negative Cycle:</b> ${hasNegCycle ? 'Detected' : 'None'}<br><br><b>Intuition:</b> Relax all edges V-1 times to propagate shortest paths; a further improvement implies a negative cycle.`;
+                    break; }
+                case 'mst': {
+                    const { totalWeight, edges } = await visualizePrimMST();
+                    result = `<b>Algorithm:</b> Prim's MST<br><b>Total Weight:</b> ${totalWeight}<br><b>Edges:</b> ${edges.map(e=>`(${e[0]}-${e[1]}:${e[2]})`).join(', ')}<br><br><b>Intuition:</b> Grow a tree from any start node. Repeatedly add the minimum-weight edge that connects a new node to the current tree (a greedy cut).`;
+                    break; }
+                case 'floydWarshall': {
+                    if (!fwMatrix || !fwMatrix.length) { fwMatrix = cloneMatrix(testCases.floydWarshall[currentTestCase]); }
+                    const dist = await runFloydWarshall(fwMatrix);
+                    result = `<b>Algorithm:</b> Floyd-Warshall (APSP)<br><b>Distance Matrix:</b><br>${formatMatrix(dist)}<br><br><b>Intuition:</b> Dynamic programming over intermediate nodes k, updating d[i][j] = min(d[i][j], d[i][k] + d[k][j]).`;
+                    break; }
             }
             document.getElementById('intuition').innerHTML = result;
+        }
+        // Bellman-Ford visualization
+        async function visualizeBellmanFord(src) {
+            const nodes = nodesFromGraphData();
+            const dist = Object.fromEntries(nodes.map(n=>[n, Infinity]));
+            dist[src] = 0;
+            const setBadge = (v)=>{ const b=document.getElementById(`dist-${v}`); if (b){ b.classList.remove('hidden'); b.textContent = (dist[v]===Infinity?'∞':dist[v]); } };
+            setBadge(src);
+            await sleep(delay/2);
+            const V = nodes.length;
+            for (let i=1;i<=V-1;i++) {
+                let changed=false;
+                for (const [u,v,w] of graphData) {
+                    // relax u->v
+                    if (dist[u]!==Infinity && dist[u]+w < dist[v]) {
+                        await highlightEdge(u,v,'#3b82f6',4);
+                        dist[v] = dist[u] + w; setBadge(v);
+                        document.getElementById(`node-${v}`)?.classList.add('bg-yellow-300');
+                        await sleep(delay/2);
+                        changed=true;
+                    }
+                    // relax v->u (undirected assumption)
+                    if (dist[v]!==Infinity && dist[v]+w < dist[u]) {
+                        await highlightEdge(v,u,'#3b82f6',4);
+                        dist[u] = dist[v] + w; setBadge(u);
+                        document.getElementById(`node-${u}`)?.classList.add('bg-yellow-300');
+                        await sleep(delay/2);
+                        changed=true;
+                    }
+                }
+                if (!changed) break;
+            }
+            // detect negative cycle
+            let hasNegCycle=false;
+            for (const [u,v,w] of graphData) {
+                if (dist[u]!==Infinity && dist[u]+w < dist[v]) { hasNegCycle=true; await highlightEdge(u,v,'#ef4444',6); }
+                if (dist[v]!==Infinity && dist[v]+w < dist[u]) { hasNegCycle=true; await highlightEdge(v,u,'#ef4444',6); }
+            }
+            return { dist, hasNegCycle };
+        }
+        // Prim's MST visualization
+        async function visualizePrimMST(){
+            const adj = buildAdjacencyListWeighted();
+            const nodes = nodesFromGraphData();
+            if (!nodes.length) return { totalWeight:0, edges:[] };
+            const start = nodes[0];
+            const inMST = new Set([start]);
+            const chosen=[]; let total=0;
+            const heap=[]; const push=(o)=>{ heap.push(o); heap.sort((a,b)=>a.w-b.w); }; const pop=()=>heap.shift();
+            for (const {to,w} of adj[start]||[]) push({w,u:start,v:to});
+            const colorNode = (v, cls)=>{ const nd=document.getElementById(`node-${v}`); nd?.classList.add(cls); };
+            colorNode(start,'bg-green-400');
+            setBadgeSilent(start,0);
+            await sleep(delay/2);
+            while (inMST.size < nodes.length && heap.length){
+                const {w,u,v} = pop();
+                if (inMST.has(v)) continue;
+                await highlightEdge(u,v,'#10b981',5);
+                inMST.add(v); chosen.push([u,v,w]); total+=w;
+                colorNode(v,'bg-green-400');
+                setBadgeSilent(v,w);
+                await sleep(delay/2);
+                for (const {to,w:ww} of adj[v]||[]) if (!inMST.has(to)) push({w:ww,u:v,v:to});
+            }
+            return { totalWeight: total, edges: chosen };
+        }
+        function setBadgeSilent(v,val){ const b=document.getElementById(`dist-${v}`); if (b){ b.classList.remove('hidden'); b.textContent = (val===Infinity?'∞':val); } }
+        // Floyd-Warshall compute
+        async function runFloydWarshall(mat){
+            const n = mat.length; const dist = mat.map(r=>r.map(x=>x));
+            // Ensure FW UI visible
+            if (fwMatrixSection) fwMatrixSection.style.display = 'block';
+            renderFWMatrixGrid(dist);
+            for (let k=0;k<n;k++){
+                fwMatrixTitle.textContent = `Distance Matrix (k = ${k})`;
+                for (let i=0;i<n;i++){
+                    for (let j=0;j<n;j++){
+                        // Highlight current cells
+                        const cIk = document.getElementById(`fwcell-${i}-${k}`);
+                        const cKj = document.getElementById(`fwcell-${k}-${j}`);
+                        const cIj = document.getElementById(`fwcell-${i}-${j}`);
+                        [cIk,cKj,cIj].forEach(c=>{ if(c){ c.classList.add('bg-yellow-100'); c.style.transition = 'background-color .2s'; }});
+                        fwStepLabel.textContent = `Trying i=${i}, j=${j} via k=${k}: d[i][k] + d[k][j] vs d[i][j]`;
+                        await sleep(Math.max(120, delay/2));
+
+                        const alt = (dist[i][k]===Infinity||dist[k][j]===Infinity) ? Infinity : dist[i][k]+dist[k][j];
+                        if (alt < dist[i][j]) {
+                            // Optional: highlight edges in FW graph
+                            await highlightEdgeFW(i,k, '#60a5fa', 4);
+                            await highlightEdgeFW(k,j, '#60a5fa', 4);
+                            dist[i][j] = alt;
+                            if (cIj) { cIj.textContent = (alt===Infinity?'INF':alt); cIj.classList.remove('bg-yellow-100'); cIj.classList.add('bg-green-100'); }
+                            await sleep(Math.max(120, delay/2));
+                        }
+                        [cIk,cKj,cIj].forEach(c=>{ if(c){ c.classList.remove('bg-yellow-100'); }});
+                    }
+                }
+            }
+            fwMatrixTitle.textContent = 'Distance Matrix (Final)';
+            return dist;
+        }
+        async function highlightEdgeFW(u,v,color='#f59e0b', width=4){
+            const e = document.getElementById(`fw-edge-${u}-${v}`) || document.getElementById(`fw-edge-${v}-${u}`) || document.getElementById(`fw-edge-${u}-${v}`);
+            if (e) { e.setAttribute('stroke', color); e.setAttribute('stroke-width', width); await sleep(delay/3); e.setAttribute('stroke','#9CA3AF'); e.setAttribute('stroke-width',2); }
         }
         // Dijkstra visualizers
         async function visualizeDijkstraPQ(src, container = graphContainer, idPrefix = '') {
@@ -404,6 +839,48 @@ vector<int> dfs(vector<vector<int>>& adj) {
     int n = adj.size();
     vector<int> res, vis(n);
     DFSUtil(adj, 0, vis, res);
+    return res;
+}`,
+            topoSortDFS: `#include <bits/stdc++.h>
+using namespace std;
+
+void dfs(int u, vector<vector<int>>& adj, vector<int>& vis, vector<int>& order){
+    vis[u] = 1;
+    for(int v: adj[u]) if(!vis[v]) dfs(v, adj, vis, order);
+    order.push_back(u);
+}
+
+vector<int> topoSortDFS(int V, vector<vector<int>>& edges){
+    vector<vector<int>> adj(V);
+    for (auto &e: edges) adj[e[0]].push_back(e[1]);
+    vector<int> vis(V), order;
+    for(int i=0;i<V;i++) if(!vis[i]) dfs(i, adj, vis, order);
+    reverse(order.begin(), order.end());
+    return order;
+}`,
+            topoSort: `#include <bits/stdc++.h>
+using namespace std;
+
+vector<int> topoSort(int V, vector<vector<int>>& edges) {
+    vector<int> indegree(V, 0);
+    queue<int> q;
+    vector<vector<int>> adj(V);
+    for(auto e : edges) {
+        adj[e[0]].push_back(e[1]);
+        indegree[e[1]]++;
+    }
+    for(int i = 0; i < V; i++) if(indegree[i] == 0) q.push(i);
+    vector<int> res;
+    while(!q.empty()) {
+        int curr = q.front();
+        q.pop();
+        res.push_back(curr);
+        for(auto v : adj[curr])
+        {
+            indegree[v]--;
+            if(indegree[v] == 0) q.push(v);
+        }
+    }
     return res;
 }`,
             cycleUndirected: `#include <bits/stdc++.h>
@@ -543,7 +1020,10 @@ vector<int> shortest(vector<vector<int>>& adj, int s) {
     return d;
 }`,
             dijkstraPQ: `// DIJKSTRA'S ALGORITHM (priority queue)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> &edges, int src) {\n    vector<vector<pair<int,int>>> adj(V);\n    for (auto &e : edges) {\n        int u=e[0], v=e[1], w=e[2];\n        adj[u].push_back({v,w});\n        adj[v].push_back({u,w});\n    }\n    vector<int> dist(V, 1e9);\n    dist[src]=0;\n    priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;\n    pq.push({0, src});\n    while(!pq.empty()){\n        auto [d,u]=pq.top(); pq.pop();\n        if (d!=dist[u]) continue;\n        for (auto [v,w]: adj[u]){\n            if (d + w < dist[v]){\n                dist[v] = d + w;\n                pq.push({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}`,
-            dijkstraSet: `// DIJKSTRA'S ALGORITHM (set)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> &edges, int src) {\n    vector<vector<pair<int,int>>> adj(V);\n    for (auto &e : edges) {\n        int u=e[0], v=e[1], w=e[2];\n        adj[u].push_back({v,w});\n        adj[v].push_back({u,w});\n    }\n    vector<int> dist(V, 1e9);\n    dist[src]=0;\n    set<pair<int,int>> st;\n    st.insert({0, src});\n    while(!st.empty()){\n        auto it = *st.begin();\n        st.erase(st.begin());\n        int d = it.first, u = it.second;\n        for (auto [v,w]: adj[u]){\n            if (d + w < dist[v]){\n                if (dist[v] != 1e9) st.erase({dist[v], v});\n                dist[v] = d + w;\n                st.insert({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}`
+            dijkstraSet: `// DIJKSTRA'S ALGORITHM (set)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> &edges, int src) {\n    vector<vector<pair<int,int>>> adj(V);\n    for (auto &e : edges) {\n        int u=e[0], v=e[1], w=e[2];\n        adj[u].push_back({v,w});\n        adj[v].push_back({u,w});\n    }\n    vector<int> dist(V, 1e9);\n    dist[src]=0;\n    set<pair<int,int>> st;\n    st.insert({0, src});\n    while(!st.empty()){\n        auto it = *st.begin();\n        st.erase(st.begin());\n        int d = it.first, u = it.second;\n        for (auto [v,w]: adj[u]){\n            if (d + w < dist[v]){\n                if (dist[v] != 1e9) st.erase({dist[v], v});\n                dist[v] = d + w;\n                st.insert({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}`,
+            bellmanFord: `// BELLMAN-FORD (detects negative cycles)\n#include <bits/stdc++.h>\nusing namespace std;\n\npair<vector<long long>, bool> bellmanFord(int V, vector<tuple<int,int,int>> &edges, int src){\n    const long long INF = 1e18;\n    vector<long long> dist(V, INF);\n    dist[src]=0;\n    for(int i=1;i<=V-1;i++){\n        bool changed=false;\n        for(auto &e: edges){\n            int u,v,w; tie(u,v,w)=e;\n            if(dist[u]!=INF && dist[u]+w < dist[v]){\n                dist[v]=dist[u]+w; changed=true;\n            }\n        }\n        if(!changed) break;\n    }\n    bool neg=false;\n    for(auto &e: edges){\n        int u,v,w; tie(u,v,w)=e;\n        if(dist[u]!=INF && dist[u]+w < dist[v]){ neg=true; break; }\n    }\n    return {dist, neg};\n}`,
+            floydWarshall: `// FLOYD-WARSHALL (All-Pairs Shortest Paths)\n#include <bits/stdc++.h>\nusing namespace std;\n\nvoid floydWarshall(vector<vector<long long>>& dist){\n    int n = dist.size();\n    const long long INF = (long long)1e15;\n    for(int k=0;k<n;k++)\n        for(int i=0;i<n;i++)\n            for(int j=0;j<n;j++)\n                if (dist[i][k] < INF && dist[k][j] < INF)\n                    dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);\n}`,
+            mst: `// PRIM'S MINIMUM SPANNING TREE\n#include <bits/stdc++.h>\nusing namespace std;\n\nlong long primMST(int V, vector<vector<int>>& edges){\n    vector<vector<pair<int,int>>> adj(V);\n    for(auto &e: edges){ int u=e[0], v=e[1], w=e[2]; adj[u].push_back({v,w}); adj[v].push_back({u,w}); }\n    vector<int> vis(V);\n    priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;\n    pq.push({0,0});\n    long long total=0; int cnt=0;\n    while(!pq.empty() && cnt<V){\n        auto [w,u]=pq.top(); pq.pop();\n        if(vis[u]) continue; vis[u]=1; total+=w; cnt++;\n        for(auto [v,ww]: adj[u]) if(!vis[v]) pq.push({ww,v});\n    }\n    return (cnt==V? total : -1);\n}`
         };
     function setCodeSnippet(k) { const code = cppSnippets[k] || ''; const block = document.getElementById('codeBlock'); block.textContent = code; toggleCodeBtn.style.display = code ? 'inline-block' : 'none'; if (window.hljs) hljs.highlightElement(block); }
         const toggleBtn = toggleCodeBtn; toggleBtn.addEventListener('click', () => { const hidden = codePanel.classList.contains('hidden'); if (hidden) { codePanel.classList.remove('hidden'); toggleBtn.textContent = 'Hide Code'; if (window.hljs) hljs.highlightElement(document.getElementById('codeBlock')); } else { codePanel.classList.add('hidden'); toggleBtn.textContent = 'Show Code'; } });
@@ -557,6 +1037,14 @@ vector<int> shortest(vector<vector<int>>& adj, int s) {
         if (isMatrixAlgorithm()) {
             gridData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]);
             m = gridData.length; n = gridData[0].length; renderGrid();
+        } else if (currentAlgorithm === 'floydWarshall') {
+            fwMatrix = normalizeFWMatrix(cloneMatrix(testCases.floydWarshall[currentTestCase]));
+            // Show graph and matrix preview for FW
+            if (graphSplit) graphSplit.style.display = 'none';
+            renderFWGraph(fwMatrix, graphContainer, 'fw-');
+            fwMatrixSection.style.display = 'block';
+            fwMatrixTitle.textContent = 'Distance Matrix (Initial)';
+            renderFWMatrixGrid(fwMatrix);
         } else {
             graphData = testCases[currentAlgorithm][currentTestCase].map(r => [...r]);
             if (currentAlgorithm === 'dijkstra' && (document.getElementById('dijkstraMethod')||{}).value === 'both') {
